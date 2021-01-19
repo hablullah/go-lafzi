@@ -36,7 +36,7 @@ func queryFromLatin(latinText string) string {
 	query = strings.ReplaceAll(query, "au", "aw")
 
 	// Mark hamza around vowels
-	query = rxHamza1.ReplaceAllString(query, "$1x$2")
+	query = rxHamza1.ReplaceAllString(query, "${1}x${2}")
 	query = rxHamza2.ReplaceAllString(query, "ix$1")
 	query = rxHamza3.ReplaceAllString(query, "ux$1")
 

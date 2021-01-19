@@ -74,7 +74,7 @@ var phonetics = map[rune]rune{
 	zah:                'z',
 	ain:                'x',
 	ghain:              'g',
-	feh:                'p',
+	feh:                'f',
 	qaf:                'k',
 	kaf:                'k',
 	lam:                'l',

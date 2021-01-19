@@ -2,12 +2,17 @@ package lafzi
 
 import "strings"
 
+func QueryFromArabic(arabicText string) string {
+	return queryFromArabic(arabicText)
+}
+
 func queryFromArabic(arabicText string) string {
 	query := strings.Join(strings.Fields(arabicText), "")
 	query = adjustEndSentence(query)
 	query = replaceTanween(query)
 	query = toPhonetic(query)
 	query = removeUnvoweled(query)
+	query = removeMadd(query)
 	query = strings.ReplaceAll(query, "0", "")
 	query = removeShadda(query)
 	query = adjustTajweed(query)
@@ -65,6 +70,12 @@ func toPhonetic(str string) string {
 	}
 
 	return string(phoneticRunes)
+}
+
+func removeMadd(str string) string {
+	str = strings.ReplaceAll(str, "iy0", "i")
+	str = strings.ReplaceAll(str, "uw0", "u")
+	return str
 }
 
 func removeShadda(str string) string {
