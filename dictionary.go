@@ -3,19 +3,22 @@ package lafzi
 import (
 	"fmt"
 	"math"
-	"os"
 	"sort"
-
-	"go.etcd.io/bbolt"
 )
 
 type Dictionary struct {
-	*bbolt.DB
+	db dataStorage
 }
 
 type DictionaryEntry struct {
 	ID         int64
 	ArabicText string
+}
+
+type dictionaryEntryTokens struct {
+	ID           int64
+	TokenCount   int
+	TokenIndexes []int
 }
 
 type dictionaryEntryScore struct {
@@ -25,8 +28,17 @@ type dictionaryEntryScore struct {
 	SubSequenceDensity  float64
 }
 
-func OpenDictionary(path string) (*Dictionary, error) {
-	db, err := bbolt.Open(path, os.ModePerm, bbolt.DefaultOptions)
+func OpenDictionary(path string, storageType StorageType) (*Dictionary, error) {
+	var err error
+	var db dataStorage
+
+	switch storageType {
+	case SQLite:
+		db, err = newSQLiteStorage(path)
+	default:
+		db, err = newBoltStorage(path)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -34,16 +46,12 @@ func OpenDictionary(path string) (*Dictionary, error) {
 	return &Dictionary{db}, nil
 }
 
+func (dict *Dictionary) Close() {
+	dict.db.close()
+}
+
 func (dict *Dictionary) AddEntries(entries ...DictionaryEntry) error {
-	return dict.Update(func(tx *bbolt.Tx) (err error) {
-		for _, entry := range entries {
-			err = dict.saveEntry(tx, entry)
-			if err != nil {
-				return
-			}
-		}
-		return
-	})
+	return dict.db.saveEntries(entries...)
 }
 
 func (dict *Dictionary) Lookup(latinText string) error {
@@ -54,38 +62,11 @@ func (dict *Dictionary) Lookup(latinText string) error {
 		return nil
 	}
 
-	// For each token, find the dictionary entry that contains such token,
-	// also the position of that token within the dictionary entry.
-	entryTokenCount := map[int64]int{}
-	entryTokenIndexes := map[int64]map[int]struct{}{}
-	dict.View(func(tx *bbolt.Tx) error {
-		for _, token := range tokens {
-			tokenBucket := tx.Bucket([]byte(token))
-			if tokenBucket == nil {
-				continue
-			}
-
-			tokenBucket.ForEach(func(btEntryID, btIndexes []byte) error {
-				entryID := bytesToInt64(btEntryID)
-				tokenIndexes := bytesToArrayInt(btIndexes)
-
-				existingIndexes := entryTokenIndexes[entryID]
-				if existingIndexes == nil {
-					existingIndexes = map[int]struct{}{}
-				}
-
-				for _, idx := range tokenIndexes {
-					existingIndexes[idx] = struct{}{}
-				}
-
-				entryTokenCount[entryID]++
-				entryTokenIndexes[entryID] = existingIndexes
-				return nil
-			})
-		}
-
-		return nil
-	})
+	// Find entries that contains the tokens
+	entries, err := dict.db.findTokens(tokens...)
+	if err != nil {
+		return err
+	}
 
 	// Calculate score and filter the dictionary entries.
 	// Here we want at least 3/4 of tokens found in each entry.
@@ -95,22 +76,14 @@ func (dict *Dictionary) Lookup(latinText string) error {
 	}
 
 	entryScores := []dictionaryEntryScore{}
-	for entryID, indexes := range entryTokenIndexes {
+	for _, entry := range entries {
 		// Make sure count of token inside this entry pass the threshold
-		tokenCount := entryTokenCount[entryID]
-		if tokenCount < countThreshold {
+		if entry.TokenCount < countThreshold {
 			continue
 		}
 
-		// Convert indexes (which is map) to array
-		arrIndexes := []int{}
-		for idx := range indexes {
-			arrIndexes = append(arrIndexes, idx)
-		}
-		sort.Ints(arrIndexes)
-
 		// Make sure length of longest sub sequence pass the threshold as well
-		longestSubSequence := dict.getLongestSubSequence(arrIndexes)
+		longestSubSequence := dict.getLongestSubSequence(entry.TokenIndexes)
 		nLongestSubSequence := len(longestSubSequence)
 		if nLongestSubSequence < countThreshold {
 			continue
@@ -123,8 +96,8 @@ func (dict *Dictionary) Lookup(latinText string) error {
 		}
 
 		entryScores = append(entryScores, dictionaryEntryScore{
-			ID:                  entryID,
-			TokenCount:          tokenCount,
+			ID:                  entry.ID,
+			TokenCount:          entry.TokenCount,
 			NLongestSubSequence: nLongestSubSequence,
 			SubSequenceDensity:  density,
 		})
@@ -154,43 +127,6 @@ func (dict *Dictionary) Lookup(latinText string) error {
 			score.TokenCount,
 			score.NLongestSubSequence,
 			score.SubSequenceDensity)
-	}
-
-	return nil
-}
-
-func (dict *Dictionary) saveEntry(tx *bbolt.Tx, entry DictionaryEntry) error {
-	// Create token from entry
-	query := queryFromArabic(entry.ArabicText)
-	tokens := tokenizeQuery(query)
-	if len(tokens) == 0 {
-		return nil
-	}
-
-	// Compact the tokens
-	compactTokens := map[string][]int{}
-	for idx, token := range tokens {
-		if existingIndexes, exist := compactTokens[token]; !exist {
-			compactTokens[token] = []int{idx}
-		} else {
-			existingIndexes = append(existingIndexes, idx)
-			compactTokens[token] = existingIndexes
-		}
-	}
-
-	// Save to dictionary
-	entryID := int64ToBytes(entry.ID)
-	for token, indexes := range compactTokens {
-		tokenBucket, err := tx.CreateBucketIfNotExists([]byte(token))
-		if err != nil {
-			return err
-		}
-
-		btIndexes := arrayIntToBytes(indexes)
-		err = tokenBucket.Put(entryID, btIndexes)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

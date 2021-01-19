@@ -2,6 +2,7 @@ package lafzi
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/binary"
 	"encoding/gob"
 )
@@ -35,4 +36,10 @@ func bytesToArrayInt(b []byte) []int {
 	reader := bytes.NewReader(b)
 	gob.NewDecoder(reader).Decode(&arr)
 	return arr
+}
+
+func panicError(err error) {
+	if err != nil && err != sql.ErrNoRows {
+		panic(err)
+	}
 }
