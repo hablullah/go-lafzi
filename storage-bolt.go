@@ -49,10 +49,20 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dictionaryEntryTokens, er
 				continue
 			}
 
-			tokenBucket.ForEach(func(btEntryID, btIndexes []byte) error {
-				entryID := bytesToInt64(btEntryID)
-				tokenIndexes := bytesToArrayInt(btIndexes)
+			tokenBucket.ForEach(func(btEntryID, _ []byte) error {
+				entryBucket := tokenBucket.Bucket(btEntryID)
+				if entryBucket == nil {
+					return nil
+				}
 
+				tokenIndexes := []int{}
+				entryBucket.ForEach(func(btIdx, _ []byte) error {
+					idx := int(bytesToInt64(btIdx))
+					tokenIndexes = append(tokenIndexes, idx)
+					return nil
+				})
+
+				entryID := bytesToInt64(btEntryID)
 				existingIndexes := entryTokenIndexes[entryID]
 				if existingIndexes == nil {
 					existingIndexes = map[int]struct{}{}
@@ -117,10 +127,16 @@ func (bs *boltStorage) saveEntry(tx *bbolt.Tx, entry DictionaryEntry) error {
 			return err
 		}
 
-		btIndexes := arrayIntToBytes(indexes)
-		err = tokenBucket.Put(entryID, btIndexes)
+		entryBucket, err := tokenBucket.CreateBucketIfNotExists(entryID)
 		if err != nil {
 			return err
+		}
+
+		for _, idx := range indexes {
+			err = entryBucket.Put(int64ToBytes(int64(idx)), nil)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
