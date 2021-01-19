@@ -2,7 +2,6 @@ package lafzi
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"sort"
@@ -51,7 +50,6 @@ func (dict *Dictionary) Lookup(latinText string) error {
 	// Convert latin text into tokens
 	query := queryFromLatin(latinText)
 	tokens := tokenizeQuery(query)
-	log.Println(tokens)
 	if len(tokens) == 0 {
 		return nil
 	}
@@ -59,7 +57,7 @@ func (dict *Dictionary) Lookup(latinText string) error {
 	// For each token, find the dictionary entry that contains such token,
 	// also the position of that token within the dictionary entry.
 	entryTokenCount := map[int64]int{}
-	entryTokenIndexes := map[int64][]int{}
+	entryTokenIndexes := map[int64]map[int]struct{}{}
 	dict.View(func(tx *bbolt.Tx) error {
 		for _, token := range tokens {
 			tokenBucket := tx.Bucket([]byte(token))
@@ -71,11 +69,17 @@ func (dict *Dictionary) Lookup(latinText string) error {
 				entryID := bytesToInt64(btEntryID)
 				tokenIndexes := bytesToArrayInt(btIndexes)
 
-				mergedIndexes := append(entryTokenIndexes[entryID], tokenIndexes...)
-				sort.Ints(mergedIndexes)
+				existingIndexes := entryTokenIndexes[entryID]
+				if existingIndexes == nil {
+					existingIndexes = map[int]struct{}{}
+				}
+
+				for _, idx := range tokenIndexes {
+					existingIndexes[idx] = struct{}{}
+				}
 
 				entryTokenCount[entryID]++
-				entryTokenIndexes[entryID] = mergedIndexes
+				entryTokenIndexes[entryID] = existingIndexes
 				return nil
 			})
 		}
@@ -98,8 +102,15 @@ func (dict *Dictionary) Lookup(latinText string) error {
 			continue
 		}
 
+		// Convert indexes (which is map) to array
+		arrIndexes := []int{}
+		for idx := range indexes {
+			arrIndexes = append(arrIndexes, idx)
+		}
+		sort.Ints(arrIndexes)
+
 		// Make sure length of longest sub sequence pass the threshold as well
-		longestSubSequence := dict.getLongestSubSequence(indexes)
+		longestSubSequence := dict.getLongestSubSequence(arrIndexes)
 		nLongestSubSequence := len(longestSubSequence)
 		if nLongestSubSequence < countThreshold {
 			continue
