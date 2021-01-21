@@ -6,64 +6,64 @@ import (
 	"sort"
 )
 
-type Dictionary struct {
-	db dataStorage
+type Database struct {
+	storage dataStorage
 }
 
-type DictionaryEntry struct {
+type DatabaseEntry struct {
 	ID         int64
 	ArabicText string
 }
 
-type dictionaryEntryTokens struct {
+type dbEntryTokens struct {
 	ID           int64
 	TokenCount   int
 	TokenIndexes []int
 }
 
-type dictionaryEntryScore struct {
+type dbEntryScore struct {
 	ID                  int64
 	TokenCount          int
 	NLongestSubSequence int
 	SubSequenceDensity  float64
 }
 
-func OpenDictionary(path string, storageType StorageType) (*Dictionary, error) {
+func OpenDatabase(path string, storageType StorageType) (*Database, error) {
 	var err error
-	var db dataStorage
+	var storage dataStorage
 
 	switch storageType {
 	case SQLite:
-		db, err = newSQLiteStorage(path)
+		storage, err = newSQLiteStorage(path)
 	default:
-		db, err = newBoltStorage(path)
+		storage, err = newBoltStorage(path)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &Dictionary{db}, nil
+	return &Database{storage}, nil
 }
 
-func (dict *Dictionary) Close() {
-	dict.db.close()
+func (db *Database) Close() {
+	db.storage.close()
 }
 
-func (dict *Dictionary) AddEntries(entries ...DictionaryEntry) error {
-	return dict.db.saveEntries(entries...)
+func (db *Database) AddEntries(entries ...DatabaseEntry) error {
+	return db.storage.saveEntries(entries...)
 }
 
-func (dict *Dictionary) Lookup(latinText string) error {
+func (db *Database) Search(transliteration string) error {
 	// Convert latin text into tokens
-	query := queryFromLatin(latinText)
+	query := queryFromLatin(transliteration)
 	tokens := tokenizeQuery(query)
 	if len(tokens) == 0 {
 		return nil
 	}
 
 	// Find entries that contains the tokens
-	entries, err := dict.db.findTokens(tokens...)
+	entries, err := db.storage.findTokens(tokens...)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (dict *Dictionary) Lookup(latinText string) error {
 		countThreshold = len(tokens)
 	}
 
-	entryScores := []dictionaryEntryScore{}
+	entryScores := []dbEntryScore{}
 	for _, entry := range entries {
 		// Make sure count of token inside this entry pass the threshold
 		if entry.TokenCount < countThreshold {
@@ -83,19 +83,19 @@ func (dict *Dictionary) Lookup(latinText string) error {
 		}
 
 		// Make sure length of longest sub sequence pass the threshold as well
-		longestSubSequence := dict.getLongestSubSequence(entry.TokenIndexes)
+		longestSubSequence := db.getLongestSubSequence(entry.TokenIndexes)
 		nLongestSubSequence := len(longestSubSequence)
 		if nLongestSubSequence < countThreshold {
 			continue
 		}
 
 		// Calculate sequence density
-		density := dict.getSequenceDensity(longestSubSequence)
+		density := db.getSequenceDensity(longestSubSequence)
 		if density < 0.5 {
 			continue
 		}
 
-		entryScores = append(entryScores, dictionaryEntryScore{
+		entryScores = append(entryScores, dbEntryScore{
 			ID:                  entry.ID,
 			TokenCount:          entry.TokenCount,
 			NLongestSubSequence: nLongestSubSequence,
@@ -132,7 +132,7 @@ func (dict *Dictionary) Lookup(latinText string) error {
 	return nil
 }
 
-func (dict *Dictionary) getLongestSubSequence(sequence []int) []int {
+func (db *Database) getLongestSubSequence(sequence []int) []int {
 	var maxStart, maxLength int
 	var currentStart, currentLength int
 
@@ -166,7 +166,7 @@ func (dict *Dictionary) getLongestSubSequence(sequence []int) []int {
 	return sequence[maxStart : maxStart+maxLength+1]
 }
 
-func (dict *Dictionary) getSequenceDensity(sequence []int) float64 {
+func (db *Database) getSequenceDensity(sequence []int) float64 {
 	var sigma float64
 	for i := 0; i < len(sequence)-1; i++ {
 		tmp := sequence[i+1] - sequence[i]

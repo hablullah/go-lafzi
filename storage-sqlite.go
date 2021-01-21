@@ -68,7 +68,7 @@ func (ss *sqliteStorage) close() {
 	ss.Close()
 }
 
-func (ss *sqliteStorage) saveEntries(entries ...DictionaryEntry) (err error) {
+func (ss *sqliteStorage) saveEntries(entries ...DatabaseEntry) (err error) {
 	// Create transaction
 	tx, err := ss.Beginx()
 	if err != nil {
@@ -142,7 +142,7 @@ func (ss *sqliteStorage) saveEntries(entries ...DictionaryEntry) (err error) {
 	return
 }
 
-func (ss *sqliteStorage) findTokens(tokens ...string) (result []dictionaryEntryTokens, err error) {
+func (ss *sqliteStorage) findTokens(tokens ...string) (result []dbEntryTokens, err error) {
 	// Create read only transaction
 	tx, err := ss.Beginx()
 	if err != nil {
@@ -209,7 +209,7 @@ func (ss *sqliteStorage) findTokens(tokens ...string) (result []dictionaryEntryT
 	}
 
 	// Convert map of token count and indexes to array
-	result = []dictionaryEntryTokens{}
+	result = []dbEntryTokens{}
 	for entryID, indexes := range entryTokenIndexes {
 		arrIndexes := []int{}
 		for idx := range indexes {
@@ -217,7 +217,7 @@ func (ss *sqliteStorage) findTokens(tokens ...string) (result []dictionaryEntryT
 		}
 		sort.Ints(arrIndexes)
 
-		result = append(result, dictionaryEntryTokens{
+		result = append(result, dbEntryTokens{
 			ID:           entryID,
 			TokenCount:   entryTokenCount[entryID],
 			TokenIndexes: arrIndexes,

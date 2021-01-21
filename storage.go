@@ -9,6 +9,6 @@ const (
 
 type dataStorage interface {
 	close()
-	saveEntries(entries ...DictionaryEntry) error
-	findTokens(tokens ...string) ([]dictionaryEntryTokens, error)
+	saveEntries(entries ...DatabaseEntry) error
+	findTokens(tokens ...string) ([]dbEntryTokens, error)
 }

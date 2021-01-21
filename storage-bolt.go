@@ -24,7 +24,7 @@ func (bs *boltStorage) close() {
 	bs.Close()
 }
 
-func (bs *boltStorage) saveEntries(entries ...DictionaryEntry) error {
+func (bs *boltStorage) saveEntries(entries ...DatabaseEntry) error {
 	return bs.Update(func(tx *bbolt.Tx) (err error) {
 		for _, entry := range entries {
 			err = bs.saveEntry(tx, entry)
@@ -36,7 +36,7 @@ func (bs *boltStorage) saveEntries(entries ...DictionaryEntry) error {
 	})
 }
 
-func (bs *boltStorage) findTokens(tokens ...string) ([]dictionaryEntryTokens, error) {
+func (bs *boltStorage) findTokens(tokens ...string) ([]dbEntryTokens, error) {
 	// For each token, find the dictionary entry that contains such token,
 	// also the position of that token within the dictionary entry.
 	entryTokenCount := map[int64]int{}
@@ -82,7 +82,7 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dictionaryEntryTokens, er
 	})
 
 	// Convert map of token count and indexes to array
-	result := []dictionaryEntryTokens{}
+	result := []dbEntryTokens{}
 	for entryID, indexes := range entryTokenIndexes {
 		arrIndexes := []int{}
 		for idx := range indexes {
@@ -90,7 +90,7 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dictionaryEntryTokens, er
 		}
 		sort.Ints(arrIndexes)
 
-		result = append(result, dictionaryEntryTokens{
+		result = append(result, dbEntryTokens{
 			ID:           entryID,
 			TokenCount:   entryTokenCount[entryID],
 			TokenIndexes: arrIndexes,
@@ -100,7 +100,7 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dictionaryEntryTokens, er
 	return result, nil
 }
 
-func (bs *boltStorage) saveEntry(tx *bbolt.Tx, entry DictionaryEntry) error {
+func (bs *boltStorage) saveEntry(tx *bbolt.Tx, entry DatabaseEntry) error {
 	// Create token from entry
 	query := queryFromArabic(entry.ArabicText)
 	tokens := tokenizeQuery(query)
