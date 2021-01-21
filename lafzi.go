@@ -5,28 +5,31 @@ import (
 	"sort"
 )
 
+// Database is the core of Lafzi. Used to store the position of tokens within the submitted documents.
 type Database struct {
 	storage dataStorage
 }
 
-type DatabaseEntry struct {
+// Document is the Arabic document that will be indexed.
+type Document struct {
 	ID         int64
 	ArabicText string
 }
 
-type dbEntryTokens struct {
+type documentTokens struct {
 	ID           int64
 	TokenCount   int
 	TokenIndexes []int
 }
 
-type dbEntryScore struct {
+type documentScore struct {
 	ID                  int64
 	TokenCount          int
 	NLongestSubSequence int
 	SubSequenceDensity  float64
 }
 
+// OpenDatabase open and creates database at the specified path.
 func OpenDatabase(path string, storageType StorageType) (*Database, error) {
 	var err error
 	var storage dataStorage
@@ -45,44 +48,47 @@ func OpenDatabase(path string, storageType StorageType) (*Database, error) {
 	return &Database{storage}, nil
 }
 
+// Close closes the database and prevent any read and write.
 func (db *Database) Close() {
 	db.storage.close()
 }
 
-func (db *Database) AddEntries(entries ...DatabaseEntry) error {
-	return db.storage.saveEntries(entries...)
+// AddDocuments adds the documents to database.
+func (db *Database) AddDocuments(documents ...Document) error {
+	return db.storage.saveDocuments(documents...)
 }
 
-func (db *Database) Search(transliteration string) ([]int64, error) {
-	// Convert latin text into tokens
-	query := queryFromLatin(transliteration)
+// Search looks for documents whose transliterations contain the specified keyword.
+func (db *Database) Search(keyword string) ([]int64, error) {
+	// Convert keyword into tokens
+	query := queryFromLatin(keyword)
 	tokens := tokenizeQuery(query)
 	if len(tokens) == 0 {
 		return nil, nil
 	}
 
-	// Find entries that contains the tokens
-	entries, err := db.storage.findTokens(tokens...)
+	// Find documents that contains the tokens
+	documents, err := db.storage.findTokens(tokens...)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate score and filter the dictionary entries.
-	// Here we want at least 3/4 of tokens found in each entry.
+	// Calculate score and filter the dictionary documents.
+	// Here we want at least 3/4 of tokens found in each document.
 	countThreshold := int(math.Ceil(float64(len(tokens)) * 3 / 4))
 	if countThreshold <= 1 {
 		countThreshold = len(tokens)
 	}
 
-	entryScores := []dbEntryScore{}
-	for _, entry := range entries {
-		// Make sure count of token inside this entry pass the threshold
-		if entry.TokenCount < countThreshold {
+	documentScores := []documentScore{}
+	for _, doc := range documents {
+		// Make sure count of token inside this document pass the threshold
+		if doc.TokenCount < countThreshold {
 			continue
 		}
 
 		// Make sure length of longest sub sequence pass the threshold as well
-		longestSubSequence := db.getLongestSubSequence(entry.TokenIndexes)
+		longestSubSequence := db.getLongestSubSequence(doc.TokenIndexes)
 		nLongestSubSequence := len(longestSubSequence)
 		if nLongestSubSequence < countThreshold {
 			continue
@@ -94,21 +100,21 @@ func (db *Database) Search(transliteration string) ([]int64, error) {
 			continue
 		}
 
-		entryScores = append(entryScores, dbEntryScore{
-			ID:                  entry.ID,
-			TokenCount:          entry.TokenCount,
+		documentScores = append(documentScores, documentScore{
+			ID:                  doc.ID,
+			TokenCount:          doc.TokenCount,
 			NLongestSubSequence: nLongestSubSequence,
 			SubSequenceDensity:  density,
 		})
 	}
 
-	// Sort entry score with following order:
+	// Sort document scores with following order:
 	// - token count, descending
 	// - sub sequence density, descending
-	// - entry id, ascending
-	sort.Slice(entryScores, func(a, b int) bool {
-		scoreA := entryScores[a]
-		scoreB := entryScores[b]
+	// - document id, ascending
+	sort.Slice(documentScores, func(a, b int) bool {
+		scoreA := documentScores[a]
+		scoreB := documentScores[b]
 
 		if scoreA.TokenCount != scoreB.TokenCount {
 			return scoreA.TokenCount > scoreB.TokenCount
@@ -121,8 +127,8 @@ func (db *Database) Search(transliteration string) ([]int64, error) {
 		return scoreA.ID < scoreB.ID
 	})
 
-	result := make([]int64, len(entryScores))
-	for i, score := range entryScores {
+	result := make([]int64, len(documentScores))
+	for i, score := range documentScores {
 		result[i] = score.ID
 	}
 

@@ -35,7 +35,7 @@ func queryFromLatin(latinText string) string {
 	}
 	query = string(newRunes)
 
-	// Substitute diphtong
+	// Substitute diphthong
 	query = strings.ReplaceAll(query, "ai", "ay")
 	query = strings.ReplaceAll(query, "au", "aw")
 

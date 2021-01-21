@@ -2,10 +2,6 @@ package lafzi
 
 import "strings"
 
-func QueryFromArabic(arabicText string) string {
-	return queryFromArabic(arabicText)
-}
-
 func queryFromArabic(arabicText string) string {
 	query := strings.Join(strings.Fields(arabicText), "")
 	query = adjustEndSentence(query)

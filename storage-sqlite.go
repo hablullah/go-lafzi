@@ -46,15 +46,15 @@ func newSQLiteStorage(path string) (storage *sqliteStorage, err error) {
 		CONSTRAINT token_pk PRIMARY KEY (id),
 		CONSTRAINT token_value_UNIQUE UNIQUE (value))`)
 
-	tx.MustExec(`CREATE TABLE IF NOT EXISTS entry_token (
-		entry_id  INTEGER NOT NULL,
-		token_id  INTEGER NOT NULL,
-		position  INTEGER NOT NULL,
-		CONSTRAINT entry_token_pk PRIMARY KEY (entry_id, token_id, position),
-		CONSTRAINT entry_token_id_fk FOREIGN KEY (token_id) REFERENCES token (id))`)
+	tx.MustExec(`CREATE TABLE IF NOT EXISTS document_token (
+		document_id INTEGER NOT NULL,
+		token_id    INTEGER NOT NULL,
+		position    INTEGER NOT NULL,
+		CONSTRAINT document_token_pk PRIMARY KEY (document_id, token_id, position),
+		CONSTRAINT document_token_id_fk FOREIGN KEY (token_id) REFERENCES token (id))`)
 
 	// Generate indexes
-	tx.MustExec(`CREATE INDEX IF NOT EXISTS entry_token_token_id_idx ON entry_token(token_id)`)
+	tx.MustExec(`CREATE INDEX IF NOT EXISTS document_token_token_id_idx ON document_token(token_id)`)
 
 	// Commit transaction
 	err = tx.Commit()
@@ -68,7 +68,7 @@ func (ss *sqliteStorage) close() {
 	ss.Close()
 }
 
-func (ss *sqliteStorage) saveEntries(entries ...DatabaseEntry) (err error) {
+func (ss *sqliteStorage) saveDocuments(documents ...Document) (err error) {
 	// Create transaction
 	tx, err := ss.Beginx()
 	if err != nil {
@@ -91,14 +91,14 @@ func (ss *sqliteStorage) saveEntries(entries ...DatabaseEntry) (err error) {
 	stmtInsertToken, err := tx.Preparex(`INSERT INTO token (value) VALUES (?)`)
 	panicError(err)
 
-	stmtInsertEntryToken, err := tx.Preparex(`INSERT OR IGNORE INTO entry_token
-		(entry_id, token_id, position) VALUES (?, ?, ?)`)
+	stmtInsertDocumentToken, err := tx.Preparex(`INSERT OR IGNORE INTO document_token
+		(document_id, token_id, position) VALUES (?, ?, ?)`)
 	panicError(err)
 
-	// Proses each entry
-	for _, entry := range entries {
-		// Create token from entry
-		query := queryFromArabic(entry.ArabicText)
+	// Proses each document
+	for _, doc := range documents {
+		// Create token from document
+		query := queryFromArabic(doc.ArabicText)
 		tokens := tokenizeQuery(query)
 		if len(tokens) == 0 {
 			continue
@@ -128,9 +128,9 @@ func (ss *sqliteStorage) saveEntries(entries ...DatabaseEntry) (err error) {
 				tokenID, _ = res.LastInsertId()
 			}
 
-			// Save entry token
+			// Save document token
 			for _, idx := range indexes {
-				stmtInsertEntryToken.MustExec(entry.ID, tokenID, idx)
+				stmtInsertDocumentToken.MustExec(doc.ID, tokenID, idx)
 			}
 		}
 	}
@@ -142,7 +142,7 @@ func (ss *sqliteStorage) saveEntries(entries ...DatabaseEntry) (err error) {
 	return
 }
 
-func (ss *sqliteStorage) findTokens(tokens ...string) (result []dbEntryTokens, err error) {
+func (ss *sqliteStorage) findTokens(tokens ...string) (result []documentTokens, err error) {
 	// Create read only transaction
 	tx, err := ss.Beginx()
 	if err != nil {
@@ -160,26 +160,26 @@ func (ss *sqliteStorage) findTokens(tokens ...string) (result []dbEntryTokens, e
 	}()
 
 	// Preare type and statement
-	type tokenEntryData struct {
-		EntryID  int64 `db:"entry_id"`
-		Position int   `db:"position"`
+	type tokenDocumentData struct {
+		DocumentID int64 `db:"document_id"`
+		Position   int   `db:"position"`
 	}
 
 	stmtGetTokenID, err := tx.Preparex(
 		`SELECT id FROM token WHERE value = ?`)
 	panicError(err)
 
-	stmtSelectEntry, err := tx.Preparex(`
-		SELECT et.entry_id, et.position
-		FROM entry_token et
-		LEFT JOIN token t ON et.token_id = t.id
+	stmtSelectDocument, err := tx.Preparex(`
+		SELECT dt.document_id, dt.position
+		FROM document_token dt
+		LEFT JOIN token t ON dt.token_id = t.id
 		WHERE t.value = ?`)
 	panicError(err)
 
-	// For each token, find the dictionary entry that contains such token,
-	// also the position of that token within the dictionary entry.
-	entryTokenCount := map[int64]int{}
-	entryTokenIndexes := map[int64]map[int]struct{}{}
+	// For each token, find the documents that contains such token,
+	// also the position of that token within the document.
+	docTokenCount := map[int64]int{}
+	docTokenIndexes := map[int64]map[int]struct{}{}
 
 	for _, token := range tokens {
 		// Get token ID
@@ -191,35 +191,35 @@ func (ss *sqliteStorage) findTokens(tokens ...string) (result []dbEntryTokens, e
 			continue
 		}
 
-		// Get token entries
-		tokenEntries := []tokenEntryData{}
-		err = stmtSelectEntry.Select(&tokenEntries, token)
+		// Get token documents
+		tokenDocuments := []tokenDocumentData{}
+		err = stmtSelectDocument.Select(&tokenDocuments, token)
 		panicError(err)
 
-		for _, te := range tokenEntries {
-			existingIndexes := entryTokenIndexes[te.EntryID]
+		for _, td := range tokenDocuments {
+			existingIndexes := docTokenIndexes[td.DocumentID]
 			if existingIndexes == nil {
 				existingIndexes = map[int]struct{}{}
 			}
-			existingIndexes[te.Position] = struct{}{}
+			existingIndexes[td.Position] = struct{}{}
 
-			entryTokenCount[te.EntryID]++
-			entryTokenIndexes[te.EntryID] = existingIndexes
+			docTokenCount[td.DocumentID]++
+			docTokenIndexes[td.DocumentID] = existingIndexes
 		}
 	}
 
 	// Convert map of token count and indexes to array
-	result = []dbEntryTokens{}
-	for entryID, indexes := range entryTokenIndexes {
+	result = []documentTokens{}
+	for docID, indexes := range docTokenIndexes {
 		arrIndexes := []int{}
 		for idx := range indexes {
 			arrIndexes = append(arrIndexes, idx)
 		}
 		sort.Ints(arrIndexes)
 
-		result = append(result, dbEntryTokens{
-			ID:           entryID,
-			TokenCount:   entryTokenCount[entryID],
+		result = append(result, documentTokens{
+			ID:           docID,
+			TokenCount:   docTokenCount[docID],
 			TokenIndexes: arrIndexes,
 		})
 	}

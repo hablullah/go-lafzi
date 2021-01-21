@@ -51,15 +51,15 @@ func createDatabase(name string, storageType lafzi.StorageType) (*lafzi.Database
 		return nil, err
 	}
 
-	dbEntries := make([]lafzi.DatabaseEntry, len(arabicTexts))
+	documents := make([]lafzi.Document, len(arabicTexts))
 	for i, text := range arabicTexts {
-		dbEntries[i] = lafzi.DatabaseEntry{
+		documents[i] = lafzi.Document{
 			ID:         int64(i + 1),
 			ArabicText: text,
 		}
 	}
 
-	err = db.AddEntries(dbEntries...)
+	err = db.AddDocuments(documents...)
 	if err != nil {
 		return nil, err
 	}

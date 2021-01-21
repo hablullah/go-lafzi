@@ -24,10 +24,10 @@ func (bs *boltStorage) close() {
 	bs.Close()
 }
 
-func (bs *boltStorage) saveEntries(entries ...DatabaseEntry) error {
+func (bs *boltStorage) saveDocuments(documents ...Document) error {
 	return bs.Update(func(tx *bbolt.Tx) (err error) {
-		for _, entry := range entries {
-			err = bs.saveEntry(tx, entry)
+		for _, doc := range documents {
+			err = bs.saveDocument(tx, doc)
 			if err != nil {
 				return
 			}
@@ -36,11 +36,11 @@ func (bs *boltStorage) saveEntries(entries ...DatabaseEntry) error {
 	})
 }
 
-func (bs *boltStorage) findTokens(tokens ...string) ([]dbEntryTokens, error) {
-	// For each token, find the dictionary entry that contains such token,
-	// also the position of that token within the dictionary entry.
-	entryTokenCount := map[int64]int{}
-	entryTokenIndexes := map[int64]map[int]struct{}{}
+func (bs *boltStorage) findTokens(tokens ...string) ([]documentTokens, error) {
+	// For each token, find the documents that contains such token,
+	// also the position of that token within the document.
+	docTokenCount := map[int64]int{}
+	docTokenIndexes := map[int64]map[int]struct{}{}
 
 	bs.View(func(tx *bbolt.Tx) error {
 		for _, token := range tokens {
@@ -49,21 +49,21 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dbEntryTokens, error) {
 				continue
 			}
 
-			tokenBucket.ForEach(func(btEntryID, _ []byte) error {
-				entryBucket := tokenBucket.Bucket(btEntryID)
-				if entryBucket == nil {
+			tokenBucket.ForEach(func(btDocID, _ []byte) error {
+				docBucket := tokenBucket.Bucket(btDocID)
+				if docBucket == nil {
 					return nil
 				}
 
 				tokenIndexes := []int{}
-				entryBucket.ForEach(func(btIdx, _ []byte) error {
+				docBucket.ForEach(func(btIdx, _ []byte) error {
 					idx := int(bytesToInt64(btIdx))
 					tokenIndexes = append(tokenIndexes, idx)
 					return nil
 				})
 
-				entryID := bytesToInt64(btEntryID)
-				existingIndexes := entryTokenIndexes[entryID]
+				docID := bytesToInt64(btDocID)
+				existingIndexes := docTokenIndexes[docID]
 				if existingIndexes == nil {
 					existingIndexes = map[int]struct{}{}
 				}
@@ -72,8 +72,8 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dbEntryTokens, error) {
 					existingIndexes[idx] = struct{}{}
 				}
 
-				entryTokenCount[entryID]++
-				entryTokenIndexes[entryID] = existingIndexes
+				docTokenCount[docID]++
+				docTokenIndexes[docID] = existingIndexes
 				return nil
 			})
 		}
@@ -82,17 +82,17 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dbEntryTokens, error) {
 	})
 
 	// Convert map of token count and indexes to array
-	result := []dbEntryTokens{}
-	for entryID, indexes := range entryTokenIndexes {
+	result := []documentTokens{}
+	for docID, indexes := range docTokenIndexes {
 		arrIndexes := []int{}
 		for idx := range indexes {
 			arrIndexes = append(arrIndexes, idx)
 		}
 		sort.Ints(arrIndexes)
 
-		result = append(result, dbEntryTokens{
-			ID:           entryID,
-			TokenCount:   entryTokenCount[entryID],
+		result = append(result, documentTokens{
+			ID:           docID,
+			TokenCount:   docTokenCount[docID],
 			TokenIndexes: arrIndexes,
 		})
 	}
@@ -100,9 +100,9 @@ func (bs *boltStorage) findTokens(tokens ...string) ([]dbEntryTokens, error) {
 	return result, nil
 }
 
-func (bs *boltStorage) saveEntry(tx *bbolt.Tx, entry DatabaseEntry) error {
-	// Create token from entry
-	query := queryFromArabic(entry.ArabicText)
+func (bs *boltStorage) saveDocument(tx *bbolt.Tx, doc Document) error {
+	// Create token from document
+	query := queryFromArabic(doc.ArabicText)
 	tokens := tokenizeQuery(query)
 	if len(tokens) == 0 {
 		return nil
@@ -120,20 +120,20 @@ func (bs *boltStorage) saveEntry(tx *bbolt.Tx, entry DatabaseEntry) error {
 	}
 
 	// Save to storage
-	entryID := int64ToBytes(entry.ID)
+	docID := int64ToBytes(doc.ID)
 	for token, indexes := range compactTokens {
 		tokenBucket, err := tx.CreateBucketIfNotExists([]byte(token))
 		if err != nil {
 			return err
 		}
 
-		entryBucket, err := tokenBucket.CreateBucketIfNotExists(entryID)
+		docBucket, err := tokenBucket.CreateBucketIfNotExists(docID)
 		if err != nil {
 			return err
 		}
 
 		for _, idx := range indexes {
-			err = entryBucket.Put(int64ToBytes(int64(idx)), nil)
+			err = docBucket.Put(int64ToBytes(int64(idx)), nil)
 			if err != nil {
 				return err
 			}
