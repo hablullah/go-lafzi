@@ -6,15 +6,19 @@ import (
 )
 
 var (
-	rxHamza1 = regexp.MustCompile(`(?i)(^|\s)([aiu])`)
-	rxHamza2 = regexp.MustCompile(`(?i)i([au])`)
-	rxHamza3 = regexp.MustCompile(`(?i)u([ai])`)
-	rxIdgham = regexp.MustCompile(`(?i)n(\s*[ynmwlr])`)
+	rxNonWord = regexp.MustCompile(`\W`)
+	rxHamza1  = regexp.MustCompile(`(?i)(^|\s)([aiu])`)
+	rxHamza2  = regexp.MustCompile(`(?i)i([au])`)
+	rxHamza3  = regexp.MustCompile(`(?i)u([ai])`)
+	rxIdgham  = regexp.MustCompile(`(?i)n(\s*[ynmwlr])`)
 )
 
 func queryFromLatin(latinText string) string {
-	// Substitute vowels
+	// Remove non word
 	query := strings.ToLower(latinText)
+	query = rxNonWord.ReplaceAllString(query, "")
+
+	// Substitute vowels
 	query = strings.ReplaceAll(query, "o", "a")
 	query = strings.ReplaceAll(query, "e", "i")
 

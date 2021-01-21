@@ -224,5 +224,6 @@ func (ss *sqliteStorage) findTokens(tokens ...string) (result []dbEntryTokens, e
 		})
 	}
 
+	err = nil
 	return
 }

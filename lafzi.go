@@ -1,7 +1,6 @@
 package lafzi
 
 import (
-	"fmt"
 	"math"
 	"sort"
 )
@@ -54,18 +53,18 @@ func (db *Database) AddEntries(entries ...DatabaseEntry) error {
 	return db.storage.saveEntries(entries...)
 }
 
-func (db *Database) Search(transliteration string) error {
+func (db *Database) Search(transliteration string) ([]int64, error) {
 	// Convert latin text into tokens
 	query := queryFromLatin(transliteration)
 	tokens := tokenizeQuery(query)
 	if len(tokens) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Find entries that contains the tokens
 	entries, err := db.storage.findTokens(tokens...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Calculate score and filter the dictionary entries.
@@ -122,14 +121,12 @@ func (db *Database) Search(transliteration string) error {
 		return scoreA.ID < scoreB.ID
 	})
 
-	for _, score := range entryScores {
-		fmt.Println(score.ID, len(tokens),
-			score.TokenCount,
-			score.NLongestSubSequence,
-			score.SubSequenceDensity)
+	result := make([]int64, len(entryScores))
+	for i, score := range entryScores {
+		result[i] = score.ID
 	}
 
-	return nil
+	return result, nil
 }
 
 func (db *Database) getLongestSubSequence(sequence []int) []int {
@@ -173,6 +170,12 @@ func (db *Database) getSequenceDensity(sequence []int) float64 {
 		sigma += 1 / float64(tmp)
 	}
 
-	nSequence := len(sequence)
-	return (1 / float64(nSequence-1)) * sigma
+	switch nSequence := len(sequence); nSequence {
+	case 1:
+		return 1
+	case 0:
+		return 0
+	default:
+		return (1 / float64(nSequence-1)) * sigma
+	}
 }
