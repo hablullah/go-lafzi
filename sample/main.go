@@ -29,12 +29,31 @@ var arabicTexts = []string{
 }
 
 func main() {
-	for i, arabicText := range arabicTexts {
-		converted := lafzi.ArabicToPhonetic(arabicText)
-		normalized := lafzi.NormalizePhonetic(converted)
+	// Open storage
+	storage, err := lafzi.OpenStorage("sample.lafzi")
+	checkError(err)
 
-		fmt.Println(i)
-		fmt.Println("CONVERTED :", converted)
-		fmt.Println("NORMALIZED:", normalized)
+	// Prepare documents
+	var docs []lafzi.Document
+	for i, arabicText := range arabicTexts {
+		docs = append(docs, lafzi.Document{
+			ID:     i,
+			Arabic: arabicText},
+		)
+	}
+
+	// Save documents to storage
+	err = storage.AddDocuments(docs...)
+	checkError(err)
+
+	// Search in storage
+	docTokens, err := storage.SearchTokens("kul", "him", "mar")
+	checkError(err)
+	fmt.Println(docTokens)
+}
+
+func checkError(err error) {
+	if err != nil {
+		panic(err)
 	}
 }
