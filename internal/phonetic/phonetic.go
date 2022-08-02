@@ -1,4 +1,4 @@
-package lafzi
+package phonetic
 
 import (
 	"regexp"
@@ -25,7 +25,7 @@ var (
 	rxUnusedX       = regexp.MustCompile(`(?i)x([^aiu0])`)
 	rxHangingVowel  = regexp.MustCompile(`(?i)[aiu]$`)
 
-	phoneticUnicodeNormalizer = transform.Chain(
+	unicodeNormalizer = transform.Chain(
 		norm.NFKD,
 		runes.Remove(runes.In(unicode.Mn)),
 		norm.NFKC,
@@ -64,9 +64,10 @@ var (
 	)
 )
 
-func NormalizePhonetic(s string) string {
+// Normalize the phonetics by using several heuristics.
+func Normalize(s string) string {
 	// Normalize unicode
-	normal, _, err := transform.String(phoneticUnicodeNormalizer, s)
+	normal, _, err := transform.String(unicodeNormalizer, s)
 	if err == nil {
 		s = normal
 	}

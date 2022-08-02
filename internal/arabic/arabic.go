@@ -1,20 +1,24 @@
-package lafzi
+package arabic
 
 import (
 	"strings"
 
+	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
 
-var arabicUnicodeNormalizer = transform.Chain(norm.NFKD, norm.NFKC)
+var unicodeNormalizer = transform.Chain(norm.NFKD, norm.NFKC)
 
-func ArabicToPhonetic(s string) string {
-	normal, _, err := transform.String(arabicUnicodeNormalizer, s)
+// ToPhonetic convert Arabic string into its phonetic.
+func ToPhonetic(s string) string {
+	// Normalize unicode
+	normal, _, err := transform.String(unicodeNormalizer, s)
 	if err == nil {
 		s = normal
 	}
 
+	// Convert Arabic chars into its phonetic
 	var sb strings.Builder
 	for _, r := range s {
 		replacementRunes := transformArabicRune(r)
@@ -23,7 +27,8 @@ func ArabicToPhonetic(s string) string {
 		}
 	}
 
-	return sb.String()
+	// Normalize the converted phonetic
+	return phonetic.Normalize(sb.String())
 }
 
 func transformArabicRune(r rune) []rune {

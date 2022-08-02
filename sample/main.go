@@ -47,7 +47,7 @@ func main() {
 	checkError(err)
 
 	// Search in storage
-	docTokens, err := storage.SearchTokens("kul", "him", "mar")
+	docTokens, err := storage.Search("kulhimmar")
 	checkError(err)
 	fmt.Println(docTokens)
 }

@@ -1,8 +1,9 @@
-package lafzi
+package tokenizer
 
 const nGram = 3
 
-func tokenize(s string) []string {
+// Split string into several trigram token.
+func Split(s string) []string {
 	// Convert string to runes
 	chars := []rune(s)
 
