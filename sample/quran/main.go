@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/hablullah/go-lafzi"
@@ -30,8 +29,16 @@ func main() {
 	checkError(err)
 
 	// Print search result
-	bt, _ := json.MarshalIndent(&results, "", "  ")
-	fmt.Println(string(bt))
+	for _, r := range results {
+		surah := getSurah(r.DocumentID)
+		if surah != nil {
+			ayah := r.DocumentID - surah.Start + 1
+			fmt.Printf("[%d:%d] (%d) => %f\n",
+				surah.ID, ayah,
+				r.DocumentID,
+				r.Confidence)
+		}
+	}
 }
 
 func checkError(err error) {

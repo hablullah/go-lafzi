@@ -6,14 +6,14 @@ type Surah struct {
 	End   int
 }
 
-func getSurah(ayah int) int {
+func getSurah(ayah int) *Surah {
 	for _, s := range listSurah {
 		if ayah >= s.Start && ayah <= s.End {
-			return s.ID
+			return &s
 		}
 	}
 
-	return -1
+	return nil
 }
 
 var listSurah = []Surah{
