@@ -1,8 +1,11 @@
 package lafzi
 
 import (
+	"sort"
+
 	"github.com/hablullah/go-lafzi/internal/arabic"
 	"github.com/hablullah/go-lafzi/internal/database"
+	"github.com/hablullah/go-lafzi/internal/lcs"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/hablullah/go-lafzi/internal/tokenizer"
 	"github.com/jmoiron/sqlx"
@@ -13,6 +16,12 @@ import (
 type Document struct {
 	ID     int
 	Arabic string
+}
+
+// Result contains id of the suitable document and its confidence level.
+type Result struct {
+	DocumentID int
+	Confidence float64
 }
 
 // Storage is the container for storing reverse indexes for
@@ -54,8 +63,7 @@ func (st *Storage) DeleteDocuments(ids ...int) error {
 }
 
 // Search for suitable documents using the specified query.
-// On success will return the ids of suitable documents.
-func (st *Storage) Search(query string) ([]int, error) {
+func (st *Storage) Search(query string) ([]Result, error) {
 	// Normalize query
 	query = phonetic.Normalize(query)
 
@@ -71,18 +79,38 @@ func (st *Storage) Search(query string) ([]int, error) {
 
 	// Score the documents using count of the tokens
 	// Here we use 40% as the minimum threshold
+	docIDs := make([]int, 0)
 	scores := make(map[int]float64)
 	for _, loc := range tokenLocations {
 		score := float64(loc.Count) / nUniqueToken
 		if score >= 0.4 {
+			docIDs = append(docIDs, loc.DocID)
 			scores[loc.DocID] = score
 		}
 	}
 
-	// Score the document using LCS and its compactness
-	// TODO:
+	// Fetch the document from database
+	docs, err := database.FetchDocuments(st.db, docIDs...)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	// Create final result by scoring each document using LCS
+	results := make([]Result, len(docs))
+	for i, doc := range docs {
+		docTokens := tokenizer.Split(doc.Content)
+		results[i] = Result{
+			DocumentID: doc.ID,
+			Confidence: lcs.Score(docTokens, tokens),
+		}
+	}
+
+	// Sort results by its confidence
+	sort.SliceStable(results, func(a, b int) bool {
+		return results[a].Confidence > results[b].Confidence
+	})
+
+	return results, nil
 }
 
 func countUniqueTokens(tokens ...string) int {

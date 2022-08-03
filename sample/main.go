@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/hablullah/go-lafzi"
@@ -47,9 +48,12 @@ func main() {
 	checkError(err)
 
 	// Search in storage
-	docTokens, err := storage.Search("kulhimmar")
+	results, err := storage.Search("zalikal kita fih")
 	checkError(err)
-	fmt.Println(docTokens)
+
+	// Print search result
+	bt, _ := json.MarshalIndent(&results, "", "  ")
+	fmt.Println(string(bt))
 }
 
 func checkError(err error) {
