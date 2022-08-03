@@ -61,7 +61,8 @@ func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
 		}
 
 		// Save tokens
-		for _, token := range tokenizer.Split(doc.Content) {
+		tokens := tokenizer.Split(doc.Content)
+		for _, token := range getUniqueTokens(tokens) {
 			_, err = stmtInsertToken.Exec(token, doc.ID)
 			if err != nil {
 				return
@@ -72,4 +73,18 @@ func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
 	// Commit to database
 	err = tx.Commit()
 	return
+}
+
+func getUniqueTokens(tokens []string) []string {
+	var uniqueTokens []string
+	tracker := make(map[string]struct{})
+
+	for _, t := range tokens {
+		if _, exist := tracker[t]; !exist {
+			tracker[t] = struct{}{}
+			uniqueTokens = append(uniqueTokens, t)
+		}
+	}
+
+	return uniqueTokens
 }
