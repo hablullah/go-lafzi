@@ -88,9 +88,6 @@ func Normalize(s string) string {
 	// Remove invalid (or disallowed) phonetic runes
 	s = invalidPhoneticRunesCleaner.String(s)
 
-	// Merge identic adjacent runes, e.g. 'amman' => 'aman'
-	s = mergeIdenticAdjacentRunes(s)
-
 	// Normalize alif or hamzah 'x' in prefix
 	s = rxHamzahPrefix.ReplaceAllString(s, "${1}${4}${2}${3}${4}")
 
@@ -130,6 +127,9 @@ func Normalize(s string) string {
 	s = strings.ReplaceAll(s, "dh", "d")
 	s = strings.ReplaceAll(s, "th", "t")
 	s = strings.ReplaceAll(s, "gh", "g")
+
+	// Merge identic adjacent runes, e.g. 'amman' => 'aman'
+	s = mergeIdenticAdjacentRunes(s)
 
 	return s
 }

@@ -18,6 +18,11 @@ func ToPhonetic(s string) string {
 		s = normal
 	}
 
+	// If string empty, stop early
+	if s == "" {
+		return s
+	}
+
 	// Convert Arabic chars into its phonetic
 	var sb strings.Builder
 	for _, r := range s {
