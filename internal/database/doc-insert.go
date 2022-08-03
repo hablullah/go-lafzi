@@ -9,6 +9,10 @@ import (
 
 // InsertDocuments save the documents into the database.
 func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
+	// Remove index, and create it once it over
+	db.Exec(`DROP INDEX IF EXISTS token_key_idx`)
+	defer db.Exec(ddlCreateTokenIndex)
+
 	// Start transaction
 	tx, err := db.Beginx()
 	if err != nil {
@@ -24,17 +28,17 @@ func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
 	}()
 
 	// Prepare statement
-	stmtInsertDoc, err := tx.Preparex(`
-		INSERT INTO document (id, content) VALUES (?, ?)
-		ON CONFLICT (id) DO UPDATE
-		SET content = excluded.content`)
+	stmtDeleteToken, err := tx.Preparex(`
+		DELETE FROM token
+		WHERE document_id = ?`)
 	if err != nil {
 		return
 	}
 
-	stmtDeleteToken, err := tx.Preparex(`
-		DELETE FROM token
-		WHERE document_id = ?`)
+	stmtInsertDoc, err := tx.Preparex(`
+		INSERT INTO document (id, content) VALUES (?, ?)
+		ON CONFLICT (id) DO UPDATE
+		SET content = excluded.content`)
 	if err != nil {
 		return
 	}
@@ -46,14 +50,16 @@ func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
 		return
 	}
 
-	// Process each document
+	// Remove any token that associated with this document
 	for _, doc := range docs {
-		// Remove any token that associated with this document
 		_, err = stmtDeleteToken.Exec(doc.ID)
 		if err != nil {
 			return
 		}
+	}
 
+	// Insert the document
+	for _, doc := range docs {
 		// Save document
 		_, err = stmtInsertDoc.Exec(doc.ID, doc.Content)
 		if err != nil {

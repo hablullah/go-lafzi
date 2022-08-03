@@ -12,8 +12,10 @@ import (
 func Open(path string) (db *sqlx.DB, err error) {
 	// Prepare DSN
 	q := url.Values{}
+	q.Add("_sync", "0")
+	q.Add("_journal", "MEMORY")
 	q.Add("_foreign_keys", "1")
-	dsn := path
+	dsn := "file:" + path + "?" + q.Encode()
 
 	// Connect database
 	db, err = sqlx.Connect("sqlite3", dsn)
