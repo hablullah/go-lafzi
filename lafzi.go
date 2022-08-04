@@ -28,7 +28,8 @@ type Result struct {
 // Arabic documents that will be searched later. Use sqlite3
 // as database engine.
 type Storage struct {
-	db *sqlx.DB
+	db            *sqlx.DB
+	minConfidence float64
 }
 
 // OpenStorage open the reverse indexes database in the specified path.
@@ -38,8 +39,7 @@ func OpenStorage(path string) (*Storage, error) {
 		return nil, err
 	}
 
-	st := &Storage{db}
-	return st, nil
+	return &Storage{db, 0.4}, nil
 }
 
 // AddDocuments save and index the documents into the storage.
@@ -60,6 +60,19 @@ func (st *Storage) AddDocuments(docs ...Document) error {
 // DeleteDocuments remove the documents in the storage.
 func (st *Storage) DeleteDocuments(ids ...int) error {
 	return database.DeleteDocuments(st.db, ids...)
+}
+
+// SetMinConfidence set the minimum confidence score for
+// the search result. Default is 40%.
+func (st *Storage) SetMinConfidence(f float64) {
+	switch {
+	case f > 1:
+		st.minConfidence = 1
+	case f <= 0:
+		st.minConfidence = 0.4 // default is 40%
+	default:
+		st.minConfidence = f
+	}
 }
 
 // Search for suitable documents using the specified query.
@@ -83,7 +96,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	scores := make(map[int]float64)
 	for _, loc := range tokenLocations {
 		score := float64(loc.Count) / nUniqueToken
-		if score >= 0.4 {
+		if score >= st.minConfidence {
 			docIDs = append(docIDs, loc.DocID)
 			scores[loc.DocID] = score
 		}
@@ -96,12 +109,16 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	}
 
 	// Create final result by scoring each document using LCS
-	results := make([]Result, len(docs))
-	for i, doc := range docs {
+	results := make([]Result, 0)
+	for _, doc := range docs {
 		docTokens := tokenizer.Split(doc.Content)
-		results[i] = Result{
-			DocumentID: doc.ID,
-			Confidence: lcs.Score(docTokens, tokens),
+		score := lcs.Score(docTokens, tokens)
+
+		if score >= st.minConfidence {
+			results = append(results, Result{
+				DocumentID: doc.ID,
+				Confidence: score,
+			})
 		}
 	}
 
