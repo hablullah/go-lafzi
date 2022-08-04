@@ -13,9 +13,9 @@ func main() {
 	checkError(err)
 
 	// Prepare storage
-	goto bench
 	err = prepareStorage(storage)
 	checkError(err)
+	goto bench
 
 	// Run benchmark
 bench:
@@ -24,6 +24,9 @@ bench:
 }
 
 func prepareStorage(st *lafzi.Storage) error {
+	start := time.Now()
+	fmt.Println("START INDEXING")
+
 	// Prepare documents
 	var docs []lafzi.Document
 	for i, ayah := range listAyah {
@@ -34,7 +37,14 @@ func prepareStorage(st *lafzi.Storage) error {
 	}
 
 	// Save documents to storage
-	return st.AddDocuments(docs...)
+	err := st.AddDocuments(docs...)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start).Seconds()
+	fmt.Printf("INDEXING FINISHED IN %f s\n\n", duration)
+	return nil
 }
 
 func runBenchmark(st *lafzi.Storage) error {
