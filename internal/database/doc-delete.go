@@ -8,6 +8,11 @@ import (
 
 // DeleteDocuments remove documents in database.
 func DeleteDocuments(db *sqlx.DB, ids ...int) (err error) {
+	// If there are no IDs submitted, stop early
+	if len(ids) == 0 {
+		return nil
+	}
+
 	// Start transaction
 	tx, err := db.Beginx()
 	if err != nil {

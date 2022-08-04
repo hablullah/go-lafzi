@@ -9,6 +9,11 @@ import (
 
 // InsertDocuments save the documents into the database.
 func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
+	// If there are no doc submitted, stop early
+	if len(docs) == 0 {
+		return nil
+	}
+
 	// Remove index, and create it once it over
 	db.Exec(`DROP INDEX IF EXISTS token_key_idx`)
 	defer db.Exec(ddlCreateTokenIndex)

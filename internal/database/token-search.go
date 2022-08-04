@@ -9,6 +9,11 @@ import (
 // SearchTokens look for document ids which contains the specified tokens,
 // then count how many tokens occured in each document.
 func SearchTokens(db *sqlx.DB, keys ...string) ([]TokenLocation, error) {
+	// If there are no keys submitted, stop early
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
 	// Prepare query
 	query, args, err := sqlx.In(`
 		SELECT document_id, COUNT(*) n
