@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/hablullah/go-lafzi"
 )
@@ -37,12 +38,18 @@ func prepareStorage(st *lafzi.Storage) error {
 }
 
 func runBenchmark(st *lafzi.Storage) error {
+	// Prepare variables to score all scenario
+	var nDoc, nQuery int
+	var nTruePos, nFalseNeg int
+	start := time.Now()
+
 	for _, sc := range scenarios {
 		fmt.Printf("SCENARIO %q\n", sc.Name)
 
 		// Prepare variables to score this scenario
-		var nMatched float64
-		nDocuments := float64(len(sc.Documents) * len(sc.Queries))
+		var nsTruePos, nsFalseNeg int
+		nsQuery := len(sc.Queries)
+		nsDoc := nsQuery * len(sc.Documents)
 
 		// Process each query
 		for _, query := range sc.Queries {
@@ -55,7 +62,6 @@ func runBenchmark(st *lafzi.Storage) error {
 			// Convert result to map of "surah:ayah"
 			mapResult := map[string]struct{}{}
 			if len(results) > 0 {
-
 				for _, r := range results {
 					if surah := getSurah(r.DocumentID); surah != nil {
 						ayah := r.DocumentID - surah.Start + 1
@@ -69,24 +75,45 @@ func runBenchmark(st *lafzi.Storage) error {
 			var undetected []string
 			for _, doc := range sc.Documents {
 				if _, exist := mapResult[doc]; exist {
-					nMatched++
+					nsTruePos++
 				} else {
 					undetected = append(undetected, doc)
+					nsFalseNeg++
 				}
 			}
 
-			// Print the undetected document
-			if len(undetected) > 0 {
-				fmt.Printf("\tQUERY %q NOT FOUND IN:\n", query)
-				for _, u := range undetected {
-					fmt.Printf("\t\t%s\n", u)
-				}
-			}
+			// TODO: Print the undetected document
+			// if len(undetected) > 0 {
+			// 	fmt.Printf("\tQUERY %q NOT FOUND IN:\n", query)
+			// 	for _, u := range undetected {
+			// 		fmt.Printf("\t\t%s\n", u)
+			// 	}
+			// }
 		}
 
-		scScore := nMatched / nDocuments
-		fmt.Printf("SCORE %q => %f\n\n", sc.Name, scScore)
+		// Print scenario info
+		fmt.Printf("\tN QUERY    : %d\n", nsQuery)
+		fmt.Printf("\tN EXPECTED : %d\n", nsDoc)
+		fmt.Printf("\tN TRUE POS : %d\n", nsTruePos)
+		fmt.Printf("\tN FALSE NEG: %d\n", nsFalseNeg)
+		fmt.Printf("\tRECALL     : %f\n", float64(nsTruePos)/float64(nsDoc))
+		fmt.Println()
+
+		nDoc += nsDoc
+		nQuery += nsQuery
+		nTruePos += nsTruePos
+		nFalseNeg += nsFalseNeg
 	}
+
+	duration := time.Since(start).Seconds()
+	speed := 1 / (float64(nQuery) / (duration * 1000))
+
+	fmt.Printf("N QUERY    : %d\n", nQuery)
+	fmt.Printf("N EXPECTED : %d\n", nDoc)
+	fmt.Printf("N TRUE POS : %d\n", nTruePos)
+	fmt.Printf("N FALSE NEG: %d\n", nFalseNeg)
+	fmt.Printf("RECALL     : %f\n", float64(nTruePos)/float64(nDoc))
+	fmt.Printf("DURATION   : %f s (%f ms/query)\n", duration, speed)
 
 	return nil
 }
