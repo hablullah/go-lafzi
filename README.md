@@ -1,13 +1,8 @@
-# Go-Lafzi
-
-[![Go Report Card][report-badge]][report-url]
-[![Go Reference][doc-badge]][doc-url]
+# Go-Lafzi [![Go Report Card][report-badge]][report-url] [![Go Reference][doc-badge]][doc-url]
 
 Go-Lafzi is a Go package for searching Arabic text using its transliteration (phonetic search). Loosely based on research by Istiadi (2012) and multiple papers related with it.
 
-It works by using indexed trigram for approximate string matching, while the search result is ranked using [_Longest Common Sequence_][lcs] with [Myers Diff Algorithm][myers]. For storing the indexes, it uses either [SQLite][sqlite] database.
-
-Using SQLite as the database brings several advantages:
+It works by using indexed trigram for approximate string matching, while the search result is ranked using [_Longest Common Sequence_][lcs] with [Myers Diff Algorithm][myers]. For storing the indexes, it uses [SQLite][sqlite] database which brings several advantages:
 
 - The indexing and lookup process is pretty fast, around 3 seconds for indexing entire Al-Quran and 90 ms per lookup. For more detail, checkout the code in [`sample/quran`](sample/quran).
 - Can be safely used concurrently.
