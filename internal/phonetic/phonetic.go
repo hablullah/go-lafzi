@@ -12,6 +12,7 @@ import (
 
 var (
 	rxVowelPrefix   = regexp.MustCompile(`(?i)^[aiu]`)
+	rxHamzahA       = regexp.MustCompile(`(?i)a([iu])`)
 	rxHamzahI       = regexp.MustCompile(`(?i)i([au])`)
 	rxHamzahU       = regexp.MustCompile(`(?i)u([ai])`)
 	rxHamzahPrefix  = regexp.MustCompile(`(?i)^([^aiu0])?([^aiu0])0?([^aiu0])([aiu])`)
@@ -79,6 +80,7 @@ func Normalize(s string) string {
 	s = similarSoundingRunesCleaner.String(s)
 
 	// Mark possible hamzah location
+	s = rxHamzahA.ReplaceAllString(s, "ax$1")
 	s = rxHamzahI.ReplaceAllString(s, "ix$1")
 	s = rxHamzahU.ReplaceAllString(s, "ux$1")
 
@@ -111,12 +113,7 @@ func Normalize(s string) string {
 	// Remove sukun (stop mark)
 	s = strings.ReplaceAll(s, "0", "")
 
-	// Remove hanging vowel, e.g. 'amanu' => 'aman'
-	s = rxHangingVowel.ReplaceAllString(s, "")
-
 	// Normalize diphtong
-	s = strings.ReplaceAll(s, "ai", "ay")
-	s = strings.ReplaceAll(s, "au", "aw")
 	s = strings.ReplaceAll(s, "sh", "s")
 	s = strings.ReplaceAll(s, "ts", "s")
 	s = strings.ReplaceAll(s, "sy", "s")
@@ -135,6 +132,11 @@ func Normalize(s string) string {
 }
 
 func normalizeSpaces(s string) string {
+	// Convert common separator into spaces
+	s = strings.ReplaceAll(s, "-", " ")
+	s = strings.ReplaceAll(s, "_", " ")
+
+	// Split sentence into words
 	words := strings.Fields(s)
 	for i, word := range words {
 		// If word started with 'a', 'i', 'u', add 'x' in front of it.
