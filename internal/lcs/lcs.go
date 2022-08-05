@@ -18,11 +18,7 @@ func Score(docTokens, queryTokens []string) float64 {
 	compactScore := calcCompactScore(lcsIndexes)
 
 	// Return the final score
-	// TODO: Since we are using Myers Diff Algorithm, the compactness score
-	// might be irrelevant, so later we need to check whether to use the
-	// ordinary LCS algorithm (from Wikipedia) or just scrap the compactness
-	// score altogether.
-	return lcsScore*0.6 + compactScore*0.4
+	return lcsScore * compactScore
 }
 
 func calcCompactScore(indexes []int) float64 {
