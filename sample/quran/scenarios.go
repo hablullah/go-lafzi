@@ -11,7 +11,7 @@ var scenarios = []Scenario{
 		Name: "A1",
 		Queries: []string{
 			"ulul albaab", "uulul albab", "ulul albab", "uulul albaab", "uuluul albaab",
-			"ululalbab", "walulalbab", "uululalbab,", "uululalbaab", "ulul al bab",
+			"ululalbab", "walulalbab", "uululalbab", "uululalbaab", "ulul al bab",
 			"uwlulalbaab", "uulu al albaab", "uuluulalbaab", "uwlul albaab",
 		},
 		Documents: []string{
