@@ -6,7 +6,6 @@ import (
 	"unicode"
 
 	"golang.org/x/text/runes"
-	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -26,11 +25,7 @@ var (
 	rxUnusedX       = regexp.MustCompile(`(?i)x([^aiu0])`)
 	rxHangingVowel  = regexp.MustCompile(`(?i)[aiu]$`)
 
-	unicodeNormalizer = transform.Chain(
-		norm.NFKD,
-		runes.Remove(runes.In(unicode.Mn)),
-		norm.NFKC,
-	)
+	mnRemover = runes.Remove(runes.In(unicode.Mn))
 
 	similarSoundingRunesCleaner = runes.Map(func(r rune) rune {
 		switch r {
@@ -78,10 +73,9 @@ var (
 // Normalize the phonetics by using several heuristics.
 func Normalize(s string) string {
 	// Normalize unicode
-	normal, _, err := transform.String(unicodeNormalizer, s)
-	if err == nil {
-		s = normal
-	}
+	s = norm.NFKD.String(s)
+	s = mnRemover.String(s)
+	s = norm.NFKC.String(s)
 
 	// Convert string to lowercase
 	s = strings.ToLower(s)
