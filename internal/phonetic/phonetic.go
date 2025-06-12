@@ -44,7 +44,17 @@ var (
 			return 'k'
 		case 'j':
 			return 'z'
-		case '\'', '`', '‘':
+		case '\'', '`',
+			'\u2019', // right single quotation mark
+			'\u02bc', // modifier letter apostrophe
+			'\u02bb', // modifier letter turned comma
+			'\u055a', // armenian apostrophe
+			'\ua78c', // latin small letter saltillo
+			'\u2032', // prime
+			'\u2035', // reversed prime
+			'\u02b9', // modifier letter prime
+			'\uff07', // fullwidth apostrophe
+			'\u2018': // left single quotation mark
 			return 'x'
 		default:
 			return r
@@ -149,16 +159,22 @@ func normalizeSpaces(s string) string {
 }
 
 func mergeIdenticAdjacentRunes(s string) string {
-	var sb strings.Builder
-
-	src := []rune(s)
-	for i := 0; i < len(src)-1; i++ {
-		if src[i] == src[i+1] {
-			continue
-		}
-		sb.WriteRune(src[i])
+	// Make sure string not empty
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return s
 	}
 
-	sb.WriteRune(src[len(src)-1])
+	// Create strings builder and init with the first rune
+	var sb strings.Builder
+	sb.WriteRune(runes[0])
+
+	// Add the next runes
+	for i := 1; i < len(runes); i++ {
+		if runes[i] != runes[i-1] {
+			sb.WriteRune(runes[i])
+		}
+	}
+
 	return sb.String()
 }
