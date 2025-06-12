@@ -5,7 +5,7 @@ import (
 
 	"github.com/hablullah/go-lafzi/internal/arabic"
 	"github.com/hablullah/go-lafzi/internal/database"
-	"github.com/hablullah/go-lafzi/internal/lcs"
+	"github.com/hablullah/go-lafzi/internal/myers"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/hablullah/go-lafzi/internal/tokenizer"
 	"github.com/jmoiron/sqlx"
@@ -112,7 +112,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	results := make([]Result, 0)
 	for _, doc := range docs {
 		docTokens := tokenizer.Split(doc.Content)
-		score := lcs.Score(docTokens, tokens)
+		score := myers.Score(docTokens, tokens)
 
 		if score >= st.minConfidence {
 			results = append(results, Result{
