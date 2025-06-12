@@ -1,10 +1,8 @@
-package lcs
+package myers
 
 import (
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_getLCS(t *testing.T) {
@@ -12,10 +10,13 @@ func Test_getLCS(t *testing.T) {
 	check := func(s1, s2, expected string) {
 		arr1 := strings.Split(s1, "")
 		arr2 := strings.Split(s2, "")
-		diff := myersDiff(arr1, arr2, 0, 0)
-		lcs, _ := getLCS(arr1, arr2, diff)
+		diff := Diff(arr1, arr2, 0, 0)
+		lcs, _ := LCS(arr1, diff)
 		strLcs := strings.Join(lcs, "")
-		assert.Equal(t, expected, strLcs, "%q and %q", s1, s2)
+
+		if strLcs != expected {
+			t.Errorf("S1 = %q, S2 = %q, WANT %q GOT %q", s1, s2, expected, strLcs)
+		}
 	}
 
 	// Example from myer's 1986 paper.
