@@ -1,6 +1,9 @@
 package myers
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type Operation uint8
 
@@ -25,6 +28,39 @@ func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
 	L := N + M
 	Z := 2*min(N, M) + 2
 
+	// Early returns for base case
+
+	// Case 1: s1 empty, which mean all inserts
+	if N == 0 {
+		edits := make([]Edit, M)
+		for m := range M {
+			edits[m] = Edit{
+				Operation:   Insert,
+				OldPosition: i,
+				NewPosition: j + m,
+			}
+		}
+		return edits
+	}
+
+	// Case 2: s2 empty, which mean all deletes
+	if M == 0 {
+		edits := make([]Edit, N)
+		for n := range N {
+			edits[n] = Edit{
+				Operation:   Delete,
+				OldPosition: i + n,
+			}
+		}
+		return edits
+	}
+
+	// Case 3: s1 and s2 equal, nothing todo
+	if N == M && slices.Equal(s1, s2) {
+		return nil
+	}
+
+	// The real Myers algorithm implementation
 	if N > 0 && M > 0 {
 		w := N - M
 		g := make([]int, Z)
@@ -71,9 +107,13 @@ func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
 						}
 
 						if D > 1 || (x != u && y != v) {
-							return append(
-								Diff(s1[0:x], s2[0:y], i, j),
-								Diff(s1[u:N], s2[v:M], i+u, j+v)...)
+							left := Diff(s1[0:x], s2[0:y], i, j)
+							right := Diff(s1[u:N], s2[v:M], i+u, j+v)
+
+							edits := make([]Edit, 0, len(left)+len(right))
+							edits = append(edits, left...)
+							edits = append(edits, right...)
+							return edits
 						} else if M > N {
 							return Diff(nil, s2[N:M], i+N, j+N)
 						} else if M < N {
