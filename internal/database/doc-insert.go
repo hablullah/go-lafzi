@@ -72,7 +72,7 @@ func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
 		}
 
 		// Save tokens
-		tokens := tokenizer.Split(doc.Content)
+		tokens := tokenizer.NGrams(doc.Content, 3)
 		for _, token := range getUniqueTokens(tokens) {
 			_, err = stmtInsertToken.Exec(token, doc.ID)
 			if err != nil {

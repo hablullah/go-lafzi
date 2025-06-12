@@ -81,7 +81,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	query = phonetic.Normalize(query)
 
 	// Convert query to trigram tokens
-	tokens := tokenizer.Split(query)
+	tokens := tokenizer.NGrams(query, 3)
 	nUniqueToken := float64(countUniqueTokens(tokens...))
 
 	// Search tokens in database
@@ -111,7 +111,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	// Create final result by scoring each document using LCS
 	results := make([]Result, 0)
 	for _, doc := range docs {
-		docTokens := tokenizer.Split(doc.Content)
+		docTokens := tokenizer.NGrams(doc.Content, 3)
 		score := myers.Score(docTokens, tokens)
 
 		if score >= st.minConfidence {
