@@ -1,7 +1,8 @@
 package lafzi
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 
 	"github.com/hablullah/go-lafzi/internal/arabic"
 	"github.com/hablullah/go-lafzi/internal/database"
@@ -82,7 +83,12 @@ func (st *Storage) Search(query string) ([]Result, error) {
 
 	// Convert query to trigram tokens
 	tokens := tokenizer.NGrams(query, 3)
-	nUniqueToken := float64(countUniqueTokens(tokens...))
+
+	// Get unique tokens
+	uniqueTokens := slices.Clone(tokens)
+	slices.Sort(uniqueTokens)
+	uniqueTokens = slices.Compact(uniqueTokens)
+	nUniqueToken := float64(len(uniqueTokens))
 
 	// Search tokens in database
 	tokenLocations, err := database.SearchTokens(st.db, tokens...)
@@ -90,56 +96,43 @@ func (st *Storage) Search(query string) ([]Result, error) {
 		return nil, err
 	}
 
-	// Score the documents using count of the tokens
-	// Here we use 40% as the minimum threshold
-	docIDs := make([]int, 0)
-	scores := make(map[int]float64)
-	for _, loc := range tokenLocations {
+	// Remove the tokens that doesn't meet the minimum threshold
+	tokenLocations = slices.DeleteFunc(tokenLocations, func(loc database.TokenLocation) bool {
 		score := float64(loc.Count) / nUniqueToken
-		if score >= st.minConfidence {
-			docIDs = append(docIDs, loc.DocID)
-			scores[loc.DocID] = score
-		}
-	}
+		return score < st.minConfidence
+	})
 
 	// Fetch the document from database
+	docIDs := make([]int, len(tokenLocations))
+	for i, loc := range tokenLocations {
+		docIDs[i] = loc.DocID
+	}
+
 	docs, err := database.FetchDocuments(st.db, docIDs...)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create final result by scoring each document using LCS
-	results := make([]Result, 0)
+	nDocs := len(docs)
+	results := make([]Result, 0, nDocs)
 	for _, doc := range docs {
 		docTokens := tokenizer.NGrams(doc.Content, 3)
 		score := myers.Score(docTokens, tokens)
-
-		if score >= st.minConfidence {
-			results = append(results, Result{
-				DocumentID: doc.ID,
-				Confidence: score,
-			})
+		if score < st.minConfidence {
+			continue
 		}
+
+		results = append(results, Result{
+			DocumentID: doc.ID,
+			Confidence: score,
+		})
 	}
 
 	// Sort results by its confidence
-	sort.SliceStable(results, func(a, b int) bool {
-		return results[a].Confidence > results[b].Confidence
+	slices.SortStableFunc(results, func(a, b Result) int {
+		return cmp.Compare(b.Confidence, a.Confidence)
 	})
 
 	return results, nil
-}
-
-func countUniqueTokens(tokens ...string) int {
-	var nUniqueToken int
-	tracker := make(map[string]struct{})
-
-	for _, t := range tokens {
-		if _, exist := tracker[t]; !exist {
-			tracker[t] = struct{}{}
-			nUniqueToken++
-		}
-	}
-
-	return nUniqueToken
 }
