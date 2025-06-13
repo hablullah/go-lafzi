@@ -1,14 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/hablullah/go-lafzi"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
 	// Open storage
+	os.RemoveAll("quran.lafzi")
 	storage, err := lafzi.OpenStorage("quran.lafzi")
 	checkError(err)
 
@@ -28,12 +34,12 @@ func prepareStorage(st *lafzi.Storage) error {
 	fmt.Println("START INDEXING")
 
 	// Prepare documents
-	var docs []lafzi.Document
+	docs := make([]lafzi.Document, len(listAyah))
 	for i, ayah := range listAyah {
-		docs = append(docs, lafzi.Document{
+		docs[i] = lafzi.Document{
 			ID:     i + 1,
 			Arabic: ayah,
-		})
+		}
 	}
 
 	// Save documents to storage
@@ -53,8 +59,8 @@ func runBenchmark(st *lafzi.Storage) error {
 	var nTruePos, nFalseNeg int
 	start := time.Now()
 
-	for _, sc := range scenarios {
-		fmt.Printf("SCENARIO %q\n", sc.Name)
+	runScenario := func(sc Scenario) error {
+		start := time.Now()
 
 		// Prepare variables to score this scenario
 		var nsTruePos, nsFalseNeg int
@@ -82,37 +88,48 @@ func runBenchmark(st *lafzi.Storage) error {
 			}
 
 			// Count how many relevant documents that found or not found
-			var undetected []string
 			for _, doc := range sc.Documents {
 				if _, exist := mapResult[doc]; exist {
 					nsTruePos++
 				} else {
-					undetected = append(undetected, doc)
 					nsFalseNeg++
 				}
 			}
-
-			// TODO: Print the undetected document
-			// if len(undetected) > 0 {
-			// 	fmt.Printf("\tQUERY %q NOT FOUND IN:\n", query)
-			// 	for _, u := range undetected {
-			// 		fmt.Printf("\t\t%s\n", u)
-			// 	}
-			// }
 		}
 
 		// Print scenario info
+		fmt.Printf("SCENARIO %q\n", sc.Name)
 		fmt.Printf("\tN QUERY    : %d\n", nsQuery)
 		fmt.Printf("\tN EXPECTED : %d\n", nsDoc)
 		fmt.Printf("\tN TRUE POS : %d\n", nsTruePos)
 		fmt.Printf("\tN FALSE NEG: %d\n", nsFalseNeg)
 		fmt.Printf("\tRECALL     : %f\n", float64(nsTruePos)/float64(nsDoc))
+		fmt.Printf("\tDURATION   : %f s\n", time.Since(start).Seconds())
 		fmt.Println()
 
 		nDoc += nsDoc
 		nQuery += nsQuery
 		nTruePos += nsTruePos
 		nFalseNeg += nsFalseNeg
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	g, _ := errgroup.WithContext(context.Background())
+	g.SetLimit(runtime.GOMAXPROCS(0))
+
+	wg.Add(len(scenarios))
+	for _, sc := range scenarios {
+		g.Go(func() error {
+			defer wg.Done()
+			return runScenario(sc)
+		})
+	}
+
+	wg.Wait()
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	duration := time.Since(start).Seconds()
