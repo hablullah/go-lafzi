@@ -10,7 +10,7 @@ import (
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/hablullah/go-lafzi/internal/tokenizer"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // Document is the Arabic document that will be indexed.

@@ -18,7 +18,7 @@ func Open(path string) (db *sqlx.DB, err error) {
 	dsn := "file:" + path + "?" + q.Encode()
 
 	// Connect database
-	db, err = sqlx.Connect("sqlite3", dsn)
+	db, err = sqlx.Connect("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
