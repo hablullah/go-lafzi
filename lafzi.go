@@ -119,9 +119,11 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	nDocs := len(docs)
 	results := make([]Result, 0, nDocs)
 	for _, doc := range docs {
-		// Create tokens from doc's Arabic text
-		trigrams := phonetic.FromArabic(doc.Arabic).Split(3)
-		docTokens := trigrams.Texts()
+		// Create string of doc tokens
+		docTokens := make([]string, len(doc.Tokens))
+		for i, t := range doc.Tokens {
+			docTokens[i] = t.Text
+		}
 
 		// Calculate final score of the doc
 		score, lcsIndexes := myers.Score(docTokens, tokens)
@@ -130,7 +132,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 		}
 
 		// Get boundary of the match
-		start, end := getMatchBoundary(trigrams, lcsIndexes)
+		start, end := getMatchBoundary(doc.Tokens, lcsIndexes)
 
 		// Save the result
 		results = append(results, Result{
@@ -150,19 +152,22 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	return results, nil
 }
 
-func getMatchBoundary(trigrams phonetic.NGram, lcsIndexes []int) (int, int) {
+func getMatchBoundary(trigrams []phonetic.NGram, lcsIndexes []int) (int, int) {
 	if len(trigrams) == 0 || len(lcsIndexes) == 0 {
 		return -1, -1
 	}
 
-	start, end := trigrams[lcsIndexes[0]].Boundary()
+	start := trigrams[lcsIndexes[0]].Start
+	end := trigrams[lcsIndexes[0]].End
+
 	for i := 1; i < len(lcsIndexes); i++ {
 		idx := lcsIndexes[i]
-		iStart, iEnd := trigrams[idx].Boundary()
-		if iStart < start {
+
+		if iStart := trigrams[idx].Start; iStart < start {
 			start = iStart
 		}
-		if iEnd > end {
+
+		if iEnd := trigrams[idx].End; iEnd > end {
 			end = iEnd
 		}
 	}

@@ -21,9 +21,14 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 	}
 
 	// Remove index, and create it once it over
-	_, err = db.Exec(`DROP INDEX IF EXISTS document_token_idx`)
+	_, err = db.Exec(`DROP INDEX IF EXISTS document_token_idx_document_id`)
 	if err != nil {
-		return err
+		return
+	}
+
+	_, err = db.Exec(`DROP INDEX IF EXISTS document_token_idx_token`)
+	if err != nil {
+		return
 	}
 
 	// Start transaction
@@ -41,17 +46,20 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 
 		// Recreate index
 		if err == nil {
-			_, err = db.Exec(ddlCreateDocumentTokenIndex)
+			_, err = db.Exec(ddlCreateDocumentTokenIndexDocID)
+		}
+
+		if err == nil {
+			_, err = db.Exec(ddlCreateDocumentTokenIndexToken)
 		}
 	}()
 
 	// Prepare statement
 	stmtInsertDoc, err := tx.Preparex(`
-		INSERT INTO document (id, arabic, phonetic)
-		VALUES (?, ?, ?)
+		INSERT INTO document (id, arabic)
+		VALUES (?, ?)
 		ON CONFLICT (id) DO UPDATE
-		SET arabic   = excluded.arabic,
-			phonetic = excluded.phonetic`)
+		SET arabic = excluded.arabic`)
 	if err != nil {
 		return
 	}
@@ -64,8 +72,8 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 	}
 
 	stmtInsertDocToken, err := tx.Preparex(`
-		INSERT INTO document_token (document_id, token)
-		VALUES (?, ?)
+		INSERT INTO document_token (document_id, token, start, end)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT DO NOTHING`)
 	if err != nil {
 		return
@@ -87,7 +95,11 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 
 		// Save tokens
 		for _, token := range arg.Phonetic.Split(3) {
-			_, err = stmtInsertDocToken.Exec(arg.DocumentID, token.String())
+			_, err = stmtInsertDocToken.Exec(
+				arg.DocumentID,
+				token.Text,
+				token.Start,
+				token.End)
 			if err != nil {
 				return
 			}

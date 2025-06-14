@@ -1,7 +1,6 @@
 package phonetic
 
 import (
-	"slices"
 	"strings"
 )
 
@@ -12,7 +11,11 @@ type Data struct {
 
 type Group []Data
 
-type NGram []Group
+type NGram struct {
+	Text  string
+	Start int
+	End   int
+}
 
 func (g Group) String() string {
 	var sb strings.Builder
@@ -43,7 +46,7 @@ func (g Group) Boundary() (int, int) {
 }
 
 // Split splits the group into several n-grams of specified size
-func (g Group) Split(n int) NGram {
+func (g Group) Split(n int) []NGram {
 	// Make sure n is not zero
 	if n <= 0 {
 		return nil
@@ -56,20 +59,17 @@ func (g Group) Split(n int) NGram {
 
 	// Pre-allocate slice with exact capacity needed
 	numNGrams := len(g) - n + 1
-	ngrams := make([]Group, 0, numNGrams)
+	ngrams := make([]NGram, 0, numNGrams)
 
 	for i := 0; i <= len(g)-n; i++ {
-		ngram := slices.Clone(g[i : i+n])
-		ngrams = append(ngrams, ngram)
+		currentGroup := g[i : i+n]
+		start, end := currentGroup.Boundary()
+		ngrams = append(ngrams, NGram{
+			Text:  currentGroup.String(),
+			Start: start,
+			End:   end,
+		})
 	}
 
 	return ngrams
-}
-
-func (ng NGram) Texts() []string {
-	texts := make([]string, len(ng))
-	for i, token := range ng {
-		texts[i] = token.String()
-	}
-	return texts
 }

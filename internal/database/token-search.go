@@ -21,8 +21,9 @@ func SearchTokens(db *sqlx.DB, tokens ...string) ([]TokenLocation, error) {
 
 	// Prepare query
 	query, args, err := sqlx.In(`
-		SELECT document_id, COUNT(*) n
-		FROM document_token WHERE token IN (?)
+		SELECT document_id, COUNT(DISTINCT token) n
+		FROM document_token
+		WHERE token IN (?)
 		GROUP BY document_id
 		ORDER BY n DESC, document_id ASC`, tokens)
 	if err != nil {
