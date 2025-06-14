@@ -23,7 +23,6 @@ var (
 	rxTajweedIdgham = regexp.MustCompile(`(?i)n0?([ynmwlr])`)
 	rxAlifLamSyams  = regexp.MustCompile(`(?i)x([aiu]?)l([zsdtnlr])`)
 	rxUnusedX       = regexp.MustCompile(`(?i)x([^aiu0])`)
-	rxHangingVowel  = regexp.MustCompile(`(?i)[aiu]$`)
 
 	mnRemover = runes.Remove(runes.In(unicode.Mn))
 

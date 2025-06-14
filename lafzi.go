@@ -4,11 +4,9 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/hablullah/go-lafzi/internal/arabic"
 	"github.com/hablullah/go-lafzi/internal/database"
 	"github.com/hablullah/go-lafzi/internal/myers"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
-	"github.com/hablullah/go-lafzi/internal/tokenizer"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -50,7 +48,7 @@ func (st *Storage) AddDocuments(docs ...Document) error {
 	for i, doc := range docs {
 		dbDocs[i] = database.Document{
 			ID:      doc.ID,
-			Content: arabic.ToPhonetic(doc.Arabic),
+			Content: phonetic.FromArabic(doc.Arabic),
 		}
 	}
 
@@ -82,7 +80,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	query = phonetic.Normalize(query)
 
 	// Convert query to trigram tokens
-	tokens := tokenizer.NGrams(query, 3)
+	tokens := phonetic.NGrams(query, 3)
 
 	// Get unique tokens
 	uniqueTokens := slices.Clone(tokens)
@@ -117,7 +115,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	nDocs := len(docs)
 	results := make([]Result, 0, nDocs)
 	for _, doc := range docs {
-		docTokens := tokenizer.NGrams(doc.Content, 3)
+		docTokens := phonetic.NGrams(doc.Content, 3)
 		score := myers.Score(docTokens, tokens)
 		if score < st.minConfidence {
 			continue

@@ -1,4 +1,4 @@
-package tokenizer
+package phonetic
 
 // NGrams splits a string into n-grams of specified size
 func NGrams(s string, n int) []string {

@@ -3,7 +3,7 @@ package database
 import (
 	"fmt"
 
-	"github.com/hablullah/go-lafzi/internal/tokenizer"
+	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -72,7 +72,7 @@ func InsertDocuments(db *sqlx.DB, docs ...Document) (err error) {
 		}
 
 		// Save tokens
-		tokens := tokenizer.NGrams(doc.Content, 3)
+		tokens := phonetic.NGrams(doc.Content, 3)
 		for _, token := range getUniqueTokens(tokens) {
 			_, err = stmtInsertToken.Exec(token, doc.ID)
 			if err != nil {
