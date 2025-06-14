@@ -41,7 +41,7 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 	// Make sure to rollback if error ever happened
 	defer func() {
 		if err != nil && tx != nil {
-			err = tx.Rollback()
+			tx.Rollback()
 		}
 
 		// Recreate index
@@ -82,7 +82,7 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 	// Insert the document
 	for _, arg := range args {
 		// Save document
-		_, err = stmtInsertDoc.Exec(arg.DocumentID, arg.Arabic, arg.Phonetic.String())
+		_, err = stmtInsertDoc.Exec(arg.DocumentID, arg.Arabic)
 		if err != nil {
 			return
 		}

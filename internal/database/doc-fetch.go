@@ -22,7 +22,7 @@ func FetchDocuments(db *sqlx.DB, ids ...int) (documents []Document, err error) {
 	}
 
 	defer func() {
-		err = tx.Rollback()
+		tx.Rollback()
 	}()
 
 	// Prepare statement
