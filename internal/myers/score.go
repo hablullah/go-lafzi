@@ -4,7 +4,7 @@ import "math"
 
 // Score calculate the scores for query inside the document
 // using LCS length and its compactness.
-func Score[T comparable](s1, s2 []T) float64 {
+func Score[T comparable](s1, s2 []T) (float64, []int) {
 	// Calculate shortest edit using Myers algorithm
 	edits := Diff(s1, s2, 0, 0)
 
@@ -18,7 +18,7 @@ func Score[T comparable](s1, s2 []T) float64 {
 	compactScore := calcCompactScore(lcsIndexes)
 
 	// Return the final score
-	return lcsScore * compactScore
+	return lcsScore * compactScore, lcsIndexes
 }
 
 func calcCompactScore(indexes []int) float64 {
