@@ -36,7 +36,7 @@ func DeleteDocuments(db *sqlx.DB, ids ...int) (err error) {
 	}
 
 	sqlToken, tokenArgs, err := sqlx.In(`
-		DELETE FROM token
+		DELETE FROM document_token
 		WHERE document_id IN (?)`, ids)
 	if err != nil {
 		return

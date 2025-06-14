@@ -2,9 +2,11 @@ package phonetic
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
+	"github.com/hablullah/go-lafzi/internal/myers"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/unicode/norm"
 )
@@ -69,8 +71,28 @@ var (
 	)
 )
 
-// Normalize the phonetics by using several heuristics.
-func Normalize(s string) string {
+// Normalize normalizes the phonetic group by using several heuristics.
+func Normalize(group Group) Group {
+	// Normalize the string
+	originalPhonetics := group.String()
+	normalizedPhonetics := NormalizeString(originalPhonetics)
+
+	// Compare diffs between the original and normalized
+	edits := myers.Diff([]rune(originalPhonetics), []rune(normalizedPhonetics), 0, 0)
+
+	// Remove phonetic data that match removed rune by normalization process
+	for i := len(edits) - 1; i >= 0; i-- {
+		if edits[i].Operation == myers.Delete {
+			pos := edits[i].OldPosition
+			group = slices.Delete(group, pos, pos+1)
+		}
+	}
+
+	return group
+}
+
+// NormalizeString normalizes the phonetic string by using several heuristics.
+func NormalizeString(s string) string {
 	// Normalize unicode
 	s = norm.NFKD.String(s)
 	s = mnRemover.String(s)

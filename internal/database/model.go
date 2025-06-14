@@ -1,11 +1,12 @@
 package database
 
 type Document struct {
-	ID      int    `db:"id"`
-	Content string `db:"content"`
+	ID       int    `db:"id"`
+	Arabic   string `db:"arabic"`
+	Phonetic string `db:"phonetic"`
 }
 
-type TokenLocation struct {
-	DocID int `db:"document_id"`
-	Count int `db:"n"`
+type DocumentToken struct {
+	DocumentID int    `db:"document_id"`
+	Token      string `db:"token"`
 }

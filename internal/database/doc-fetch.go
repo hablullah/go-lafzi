@@ -15,7 +15,7 @@ func FetchDocuments(db *sqlx.DB, ids ...int) ([]Document, error) {
 
 	// Prepare query
 	query, args, err := sqlx.In(`
-		SELECT id, content FROM document
+		SELECT id, arabic, phonetic FROM document
 		WHERE id IN (?)`, ids)
 	if err != nil {
 		return nil, err

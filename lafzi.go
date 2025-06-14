@@ -20,7 +20,10 @@ type Document struct {
 // Result contains id of the suitable document and its confidence level.
 type Result struct {
 	DocumentID int
+	Text       string
 	Confidence float64
+	Start      int
+	End        int
 }
 
 // Storage is the container for storing reverse indexes for
@@ -44,11 +47,12 @@ func OpenStorage(path string) (*Storage, error) {
 // AddDocuments save and index the documents into the storage.
 func (st *Storage) AddDocuments(docs ...Document) error {
 	// Convert Arabic text to phonetics
-	dbDocs := make([]database.Document, len(docs))
+	dbDocs := make([]database.InsertDocumentArg, len(docs))
 	for i, doc := range docs {
-		dbDocs[i] = database.Document{
-			ID:      doc.ID,
-			Content: phonetic.FromArabic(doc.Arabic),
+		dbDocs[i] = database.InsertDocumentArg{
+			DocumentID: doc.ID,
+			Arabic:     doc.Arabic,
+			Phonetic:   phonetic.FromArabic(doc.Arabic),
 		}
 	}
 
@@ -77,7 +81,7 @@ func (st *Storage) SetMinConfidence(f float64) {
 // Search for suitable documents using the specified query.
 func (st *Storage) Search(query string) ([]Result, error) {
 	// Normalize query
-	query = phonetic.Normalize(query)
+	query = phonetic.NormalizeString(query)
 
 	// Convert query to trigram tokens
 	tokens := phonetic.NGrams(query, 3)
@@ -89,7 +93,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	nUniqueToken := float64(len(uniqueTokens))
 
 	// Search tokens in database
-	tokenLocations, err := database.SearchTokens(st.db, tokens...)
+	tokenLocations, err := database.SearchTokens(st.db, uniqueTokens...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,10 +104,10 @@ func (st *Storage) Search(query string) ([]Result, error) {
 		return score < st.minConfidence
 	})
 
-	// Fetch the document from database
+	// Fetch the documents from database
 	docIDs := make([]int, len(tokenLocations))
 	for i, loc := range tokenLocations {
-		docIDs[i] = loc.DocID
+		docIDs[i] = loc.DocumentID
 	}
 
 	docs, err := database.FetchDocuments(st.db, docIDs...)
@@ -115,15 +119,26 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	nDocs := len(docs)
 	results := make([]Result, 0, nDocs)
 	for _, doc := range docs {
-		docTokens := phonetic.NGrams(doc.Content, 3)
-		score := myers.Score(docTokens, tokens)
+		// Create tokens from doc's Arabic text
+		trigrams := phonetic.FromArabic(doc.Arabic).Split(3)
+		docTokens := trigrams.Texts()
+
+		// Calculate final score of the doc
+		score, lcsIndexes := myers.Score(docTokens, tokens)
 		if score < st.minConfidence {
 			continue
 		}
 
+		// Get boundary of the match
+		start, end := getMatchBoundary(trigrams, lcsIndexes)
+
+		// Save the result
 		results = append(results, Result{
 			DocumentID: doc.ID,
+			Text:       doc.Arabic,
 			Confidence: score,
+			Start:      start,
+			End:        end,
 		})
 	}
 
@@ -133,4 +148,24 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	})
 
 	return results, nil
+}
+
+func getMatchBoundary(trigrams phonetic.NGram, lcsIndexes []int) (int, int) {
+	if len(trigrams) == 0 || len(lcsIndexes) == 0 {
+		return -1, -1
+	}
+
+	start, end := trigrams[lcsIndexes[0]].Boundary()
+	for i := 1; i < len(lcsIndexes); i++ {
+		idx := lcsIndexes[i]
+		iStart, iEnd := trigrams[idx].Boundary()
+		if iStart < start {
+			start = iStart
+		}
+		if iEnd > end {
+			end = iEnd
+		}
+	}
+
+	return start, end
 }

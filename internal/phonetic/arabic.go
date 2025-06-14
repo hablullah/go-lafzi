@@ -1,16 +1,14 @@
 package phonetic
 
 import (
-	"strings"
-
 	"golang.org/x/text/unicode/norm"
 )
 
 // FromArabic convert Arabic string into its phonetic.
-func FromArabic(s string) string {
+func FromArabic(s string) Group {
 	// If string empty, stop early
 	if s == "" {
-		return s
+		return nil
 	}
 
 	// Normalize unicode
@@ -18,16 +16,20 @@ func FromArabic(s string) string {
 	s = norm.NFKC.String(s)
 
 	// Convert Arabic chars into its phonetic
-	var sb strings.Builder
-	for _, r := range s {
+	runes := []rune(s)
+	phonetics := make([]Data, 0, 2*len(runes)) // worst case, each rune is fathatain
+	for i, r := range runes {
 		replacementRunes := transformArabicRune(r)
 		for _, rr := range replacementRunes {
-			sb.WriteRune(rr)
+			phonetics = append(phonetics, Data{
+				Rune: rr,
+				Pos:  i,
+			})
 		}
 	}
 
 	// Normalize the converted phonetic
-	return Normalize(sb.String())
+	return Normalize(phonetics)
 }
 
 func transformArabicRune(r rune) []rune {
