@@ -12,9 +12,9 @@ import (
 func Open(path string) (db *sqlx.DB, err error) {
 	// Prepare DSN
 	q := url.Values{}
-	q.Add("_sync", "0")
-	q.Add("_journal", "MEMORY")
-	q.Add("_foreign_keys", "1")
+	q.Add("_pragma", "synchronous(0)")
+	q.Add("_pragma", "journal_mode(MEMORY)")
+	q.Add("_pragma", "foreign_keys(1)")
 	dsn := "file:" + path + "?" + q.Encode()
 
 	// Connect database
