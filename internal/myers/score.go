@@ -22,6 +22,10 @@ func Score[T comparable](s1, s2 []T) (float64, []int) {
 }
 
 func calcCompactScore(indexes []int) float64 {
+	if len(indexes) == 1 {
+		return 1 // only one index, can't get any more compact than that
+	}
+
 	var sum float64
 	for i := range len(indexes) - 1 {
 		nextIdx := float64(indexes[i+1])
