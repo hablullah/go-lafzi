@@ -71,11 +71,17 @@ Which will give us following results :
 [
   {
     "DocumentID": 1,
-    "Confidence": 1
+    "Text": "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ",
+    "Confidence": 1,
+    "Start": 17,
+    "End": 27
   },
   {
     "DocumentID": 3,
-    "Confidence": 1
+    "Text": "الرَّحْمَـٰنِ الرَّحِيمِ",
+    "Confidence": 1,
+    "Start": 2,
+    "End": 12
   }
 ]
 ```
