@@ -18,8 +18,7 @@ type Result struct {
 	DocumentID int
 	Text       string
 	Confidence float64
-	Start      int
-	End        int
+	Positions  [][2]int
 }
 
 // Storage is the container for storing reverse indexes for
@@ -107,8 +106,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 			DocumentID: doc.ID,
 			Text:       doc.Arabic,
 			Confidence: searchResults[i].Confidence,
-			Start:      searchResults[i].Start,
-			End:        searchResults[i].End,
+			Positions:  searchResults[i].Positions,
 		}
 	}
 

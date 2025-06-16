@@ -32,9 +32,8 @@ type TokenLocationGroup struct {
 
 type SearchResult struct {
 	DocumentID int
-	Start      int
-	End        int
 	Confidence float64
+	Positions  [][2]int
 }
 
 // SearchTokens look for document ids which contains the specified tokens,
@@ -128,7 +127,7 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 	// Create group from token locations
 	groups := make([]TokenLocationGroup, 0, nTokenLocations)
 	firstTL := flatTokenLocations[0]
-	current := TokenLocationGroup{
+	currentGroup := TokenLocationGroup{
 		DocumentID:  firstTL.DocumentID,
 		LastTokenID: firstTL.TokenID,
 		Start:       firstTL.Start,
@@ -139,25 +138,25 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 
 	for i := 1; i < nTokenLocations; i++ {
 		tl := flatTokenLocations[i]
-		isSameGroup := tl.DocumentID == current.DocumentID &&
-			tl.TokenID > current.LastTokenID
+		isSameGroup := tl.DocumentID == currentGroup.DocumentID &&
+			tl.TokenID > currentGroup.LastTokenID
 
 		if isSameGroup {
-			current.Count++
-			current.End = tl.End
-			current.LastTokenID = tl.TokenID
-			current.Positions = append(current.Positions, tl.Start)
+			currentGroup.Count++
+			currentGroup.End = tl.End
+			currentGroup.LastTokenID = tl.TokenID
+			currentGroup.Positions = append(currentGroup.Positions, tl.Start)
 		} else {
 			// We landed on a new group, so save the current one
-			current.TokenScore = float64(current.Count) / float64(nToken)
-			current.Compactness = calcCompactness(current.Positions)
-			current.Confidence = current.TokenScore * current.Compactness
-			if current.Confidence >= minConfidence {
-				groups = append(groups, current)
+			currentGroup.TokenScore = float64(currentGroup.Count) / float64(nToken)
+			currentGroup.Compactness = calcCompactness(currentGroup.Positions)
+			currentGroup.Confidence = currentGroup.TokenScore * currentGroup.Compactness
+			if currentGroup.Confidence >= minConfidence {
+				groups = append(groups, currentGroup)
 			}
 
 			// Once saved, reset the current group with the current token
-			current = TokenLocationGroup{
+			currentGroup = TokenLocationGroup{
 				DocumentID:  tl.DocumentID,
 				LastTokenID: tl.TokenID,
 				Start:       tl.Start,
@@ -169,32 +168,67 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 	}
 
 	// Save the last group
-	current.TokenScore = float64(current.Count) / float64(nToken)
-	current.Compactness = calcCompactness(current.Positions)
-	current.Confidence = current.TokenScore * current.Compactness
-	if current.Confidence >= minConfidence {
-		groups = append(groups, current)
+	currentGroup.TokenScore = float64(currentGroup.Count) / float64(nToken)
+	currentGroup.Compactness = calcCompactness(currentGroup.Positions)
+	currentGroup.Confidence = currentGroup.TokenScore * currentGroup.Compactness
+	if currentGroup.Confidence >= minConfidence {
+		groups = append(groups, currentGroup)
 	}
 
-	// Sort by the best score
+	// Sort the groups based on document ID and its start
 	slices.SortFunc(groups, func(a, b TokenLocationGroup) int {
+		if a.DocumentID != b.DocumentID {
+			return cmp.Compare(a.DocumentID, b.DocumentID)
+		}
+
+		if a.Start != b.Start {
+			return cmp.Compare(a.Start, b.Start)
+		}
+
+		return -cmp.Compare(a.Confidence, b.Confidence)
+	})
+
+	// Create the final result
+	results = make([]SearchResult, 0, len(groups))
+	firstGroup := groups[0]
+	currentResult := SearchResult{
+		DocumentID: firstGroup.DocumentID,
+		Confidence: firstGroup.Confidence,
+		Positions:  [][2]int{{firstGroup.Start, firstGroup.End}},
+	}
+
+	for i := 1; i < len(groups); i++ {
+		gi := groups[i]
+		giPos := [2]int{gi.Start, gi.End}
+
+		// Same document as before, so merge it
+		if currentResult.DocumentID == gi.DocumentID {
+			currentResult.Confidence = max(currentResult.Confidence, gi.Confidence)
+			currentResult.Positions = append(currentResult.Positions, giPos)
+		} else {
+			// We reach different document, so save the current result
+			results = append(results, currentResult)
+
+			// Reset the value of current
+			currentResult = SearchResult{
+				DocumentID: gi.DocumentID,
+				Confidence: gi.Confidence,
+				Positions:  [][2]int{giPos},
+			}
+		}
+	}
+
+	// Save the leftover result
+	results = append(results, currentResult)
+
+	// Sort by best confidence
+	slices.SortFunc(results, func(a, b SearchResult) int {
 		if a.Confidence != b.Confidence {
 			return -cmp.Compare(a.Confidence, b.Confidence)
 		}
 
 		return cmp.Compare(a.DocumentID, b.DocumentID)
 	})
-
-	// Create the final result
-	results = make([]SearchResult, len(groups))
-	for i, g := range groups {
-		results[i] = SearchResult{
-			DocumentID: g.DocumentID,
-			Start:      g.Start,
-			End:        g.End,
-			Confidence: g.Confidence,
-		}
-	}
 
 	return
 }
