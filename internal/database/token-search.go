@@ -175,6 +175,12 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 		groups = append(groups, currentGroup)
 	}
 
+	// If there are no groups, stop early
+	nGroups := len(groups)
+	if nGroups == 0 {
+		return
+	}
+
 	// Sort the groups based on document ID and its start
 	slices.SortFunc(groups, func(a, b TokenLocationGroup) int {
 		if a.DocumentID != b.DocumentID {
@@ -189,7 +195,7 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 	})
 
 	// Create the final result
-	results = make([]SearchResult, 0, len(groups))
+	results = make([]SearchResult, 0, nGroups)
 	firstGroup := groups[0]
 	currentResult := SearchResult{
 		DocumentID: firstGroup.DocumentID,
@@ -197,7 +203,7 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 		Positions:  [][2]int{{firstGroup.Start, firstGroup.End}},
 	}
 
-	for i := 1; i < len(groups); i++ {
+	for i := 1; i < nGroups; i++ {
 		gi := groups[i]
 		giPos := [2]int{gi.Start, gi.End}
 
