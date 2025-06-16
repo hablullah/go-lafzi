@@ -48,7 +48,6 @@ func Open(path string) (db *sqlx.DB, err error) {
 	ddlQueries := []string{
 		ddlCreateDocument,
 		ddlCreateDocumentToken,
-		ddlCreateDocumentTokenIndexDocID,
 		ddlCreateDocumentTokenIndexToken}
 
 	for _, query := range ddlQueries {
@@ -80,9 +79,6 @@ CREATE TABLE IF NOT EXISTS document_token (
 	start       INT  NOT NULL,
 	end         INT  NOT NULL,
 	CONSTRAINT token_document_fk FOREIGN KEY (document_id) REFERENCES document (id))`
-
-const ddlCreateDocumentTokenIndexDocID = `
-CREATE INDEX IF NOT EXISTS document_token_idx_document_id ON document_token (document_id)`
 
 const ddlCreateDocumentTokenIndexToken = `
 CREATE INDEX IF NOT EXISTS document_token_idx_token ON document_token (token)`

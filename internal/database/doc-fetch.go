@@ -1,9 +1,9 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 
-	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -22,6 +22,9 @@ func FetchDocuments(db *sqlx.DB, ids ...int) (documents []Document, err error) {
 	}
 
 	defer func() {
+		if err == sql.ErrNoRows {
+			err = nil
+		}
 		tx.Rollback()
 	}()
 
@@ -33,38 +36,14 @@ func FetchDocuments(db *sqlx.DB, ids ...int) (documents []Document, err error) {
 		return
 	}
 
-	stmtGetTokens, err := tx.Preparex(`
-		SELECT token, start, end FROM document_token
-		WHERE document_id = ?
-		ORDER BY start, end`)
-	if err != nil {
-		return
-	}
-
 	// Fetch data
 	documents = make([]Document, 0, len(ids))
 	for _, id := range ids {
 		var doc Document
 		err = stmtGetDoc.Get(&doc, id)
-		if err != nil {
+		if err != nil && err != sql.ErrNoRows {
 			return
 		}
-
-		var tokens []DocumentToken
-		err = stmtGetTokens.Select(&tokens, id)
-		if err != nil {
-			return
-		}
-
-		doc.Tokens = make([]phonetic.NGram, len(tokens))
-		for i, token := range tokens {
-			doc.Tokens[i] = phonetic.NGram{
-				Text:  token.Token,
-				Start: token.Start,
-				End:   token.End,
-			}
-		}
-
 		documents = append(documents, doc)
 	}
 

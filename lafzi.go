@@ -1,11 +1,7 @@
 package lafzi
 
 import (
-	"cmp"
-	"slices"
-
 	"github.com/hablullah/go-lafzi/internal/database"
-	"github.com/hablullah/go-lafzi/internal/myers"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -86,27 +82,15 @@ func (st *Storage) Search(query string) ([]Result, error) {
 	// Convert query to trigram tokens
 	tokens := phonetic.NGrams(query, 3)
 
-	// Get unique tokens
-	uniqueTokens := slices.Clone(tokens)
-	slices.Sort(uniqueTokens)
-	uniqueTokens = slices.Compact(uniqueTokens)
-	nUniqueToken := float64(len(uniqueTokens))
-
 	// Search tokens in database
-	tokenLocations, err := database.SearchTokens(st.db, uniqueTokens...)
+	searchResults, err := database.SearchTokens(st.db, st.minConfidence, tokens...)
 	if err != nil {
 		return nil, err
 	}
 
-	// Remove the tokens that doesn't meet the minimum threshold
-	tokenLocations = slices.DeleteFunc(tokenLocations, func(loc database.TokenLocation) bool {
-		score := float64(loc.Count) / nUniqueToken
-		return score < st.minConfidence
-	})
-
 	// Fetch the documents from database
-	docIDs := make([]int, len(tokenLocations))
-	for i, loc := range tokenLocations {
+	docIDs := make([]int, len(searchResults))
+	for i, loc := range searchResults {
 		docIDs[i] = loc.DocumentID
 	}
 
@@ -115,62 +99,18 @@ func (st *Storage) Search(query string) ([]Result, error) {
 		return nil, err
 	}
 
-	// Create final result by scoring each document using LCS
-	nDocs := len(docs)
-	results := make([]Result, 0, nDocs)
-	for _, doc := range docs {
-		// Create string of doc tokens
-		docTokens := make([]string, len(doc.Tokens))
-		for i, t := range doc.Tokens {
-			docTokens[i] = t.Text
-		}
-
-		// Calculate final score of the doc
-		score, lcsIndexes := myers.Score(docTokens, tokens)
-		if score < st.minConfidence {
-			continue
-		}
-
-		// Get boundary of the match
-		start, end := getMatchBoundary(doc.Tokens, lcsIndexes)
-
+	// Create final result
+	results := make([]Result, len(docs))
+	for i, doc := range docs {
 		// Save the result
-		results = append(results, Result{
+		results[i] = Result{
 			DocumentID: doc.ID,
 			Text:       doc.Arabic,
-			Confidence: score,
-			Start:      start,
-			End:        end,
-		})
+			Confidence: searchResults[i].Confidence,
+			Start:      searchResults[i].Start,
+			End:        searchResults[i].End,
+		}
 	}
-
-	// Sort results by its confidence
-	slices.SortStableFunc(results, func(a, b Result) int {
-		return cmp.Compare(b.Confidence, a.Confidence)
-	})
 
 	return results, nil
-}
-
-func getMatchBoundary(trigrams []phonetic.NGram, lcsIndexes []int) (int, int) {
-	if len(trigrams) == 0 || len(lcsIndexes) == 0 {
-		return -1, -1
-	}
-
-	start := trigrams[lcsIndexes[0]].Start
-	end := trigrams[lcsIndexes[0]].End
-
-	for i := 1; i < len(lcsIndexes); i++ {
-		idx := lcsIndexes[i]
-
-		if iStart := trigrams[idx].Start; iStart < start {
-			start = iStart
-		}
-
-		if iEnd := trigrams[idx].End; iEnd > end {
-			end = iEnd
-		}
-	}
-
-	return start, end
 }
