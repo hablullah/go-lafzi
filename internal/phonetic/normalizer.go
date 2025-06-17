@@ -1,8 +1,8 @@
 package phonetic
 
 import (
+	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 	"unicode"
 
@@ -74,21 +74,70 @@ var (
 // Normalize normalizes the phonetic group by using several heuristics.
 func Normalize(group Group) Group {
 	// Normalize the string
-	originalPhonetics := group.String()
-	normalizedPhonetics := NormalizeString(originalPhonetics)
+	original := group.String()
+	normalized := NormalizeString(original)
 
 	// Compare diffs between the original and normalized
-	edits := myers.Diff([]rune(originalPhonetics), []rune(normalizedPhonetics), 0, 0)
+	edits := myers.Diff([]rune(original), []rune(normalized), 0, 0)
 
-	// Remove phonetic data that match removed rune by normalization process
-	for i := len(edits) - 1; i >= 0; i-- {
-		if edits[i].Operation == myers.Delete {
-			pos := edits[i].OldPosition
-			group = slices.Delete(group, pos, pos+1)
+	// Use the edits to create the new phonetic group.
+	// First, estimate the new size.
+	originalSize := len(group)
+	estimatedSize := originalSize
+	for _, e := range edits {
+		if e.Operation == myers.Insert {
+			estimatedSize++
+		} else if e.Operation == myers.Delete {
+			estimatedSize--
 		}
 	}
 
-	return group
+	// Create new sequence of phonetic data
+	var i int
+	newSequence := make(Group, 0, estimatedSize)
+	for _, e := range edits {
+		for e.OldPosition > i {
+			if i < originalSize {
+				newSequence = append(newSequence, group[i])
+			}
+			i++
+		}
+
+		if e.OldPosition == i {
+			if e.Operation == myers.Delete {
+				i = i + 1
+			} else if e.Operation == myers.Insert {
+				newSequence = append(newSequence, Data{Rune: e.NewElement, Pos: -1})
+			}
+		} else {
+			panic(fmt.Errorf("this should never happen"))
+		}
+	}
+
+	for i < originalSize {
+		newSequence = append(newSequence, group[i])
+		i++
+	}
+
+	// If the new sequence is empty, stop
+	newSequenceSize := len(newSequence)
+	if newSequenceSize == 0 {
+		return nil
+	}
+
+	// Check the first item in sequence
+	if newSequence[0].Pos == -1 {
+		newSequence[0].Pos = 0
+	}
+
+	// Fill the position of new sequence
+	for i := 1; i < newSequenceSize; i++ {
+		if newSequence[i].Pos == -1 {
+			newSequence[i].Pos = newSequence[i-1].Pos
+		}
+	}
+
+	return newSequence
 }
 
 // NormalizeString normalizes the phonetic string by using several heuristics.

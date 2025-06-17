@@ -12,17 +12,17 @@ const (
 	Insert
 )
 
-type Edit struct {
+type Edit[T comparable] struct {
 	Operation   Operation
 	OldPosition int
-	NewPosition int
+	NewElement  T
 }
 
 // Diff returns minimal edit operation to convert s1 into s2,
 // requring O(min(len(e),len(f))) space and O(min(len(e),len(f)) * D)
 // worst-case execution time where D is the number of differences.
 // Taken from http://blog.robertelder.org/diff-algorithm/
-func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
+func Diff[T comparable](s1, s2 []T, i, j int) []Edit[T] {
 	N := len(s1)
 	M := len(s2)
 	L := N + M
@@ -32,12 +32,12 @@ func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
 
 	// Case 1: s1 empty, which mean all inserts
 	if N == 0 {
-		edits := make([]Edit, M)
+		edits := make([]Edit[T], M)
 		for m := range M {
-			edits[m] = Edit{
+			edits[m] = Edit[T]{
 				Operation:   Insert,
 				OldPosition: i,
-				NewPosition: j + m,
+				NewElement:  s2[m],
 			}
 		}
 		return edits
@@ -45,9 +45,9 @@ func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
 
 	// Case 2: s2 empty, which mean all deletes
 	if M == 0 {
-		edits := make([]Edit, N)
+		edits := make([]Edit[T], N)
 		for n := range N {
-			edits[n] = Edit{
+			edits[n] = Edit[T]{
 				Operation:   Delete,
 				OldPosition: i + n,
 			}
@@ -110,7 +110,7 @@ func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
 							left := Diff(s1[0:x], s2[0:y], i, j)
 							right := Diff(s1[u:N], s2[v:M], i+u, j+v)
 
-							edits := make([]Edit, 0, len(left)+len(right))
+							edits := make([]Edit[T], 0, len(left)+len(right))
 							edits = append(edits, left...)
 							edits = append(edits, right...)
 							return edits
@@ -126,21 +126,21 @@ func Diff[T comparable](s1, s2 []T, i, j int) []Edit {
 			}
 		}
 	} else if N > 0 {
-		edits := make([]Edit, 0, N)
+		edits := make([]Edit[T], 0, N)
 		for n := range N {
-			edits = append(edits, Edit{
+			edits = append(edits, Edit[T]{
 				Operation:   Delete,
 				OldPosition: i + n,
 			})
 		}
 		return edits
 	} else {
-		edits := make([]Edit, 0, M)
+		edits := make([]Edit[T], 0, M)
 		for m := range M {
-			edits = append(edits, Edit{
+			edits = append(edits, Edit[T]{
 				Operation:   Insert,
 				OldPosition: i,
-				NewPosition: j + m,
+				NewElement:  s2[m],
 			})
 		}
 		return edits
