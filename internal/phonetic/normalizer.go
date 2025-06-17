@@ -13,9 +13,9 @@ import (
 
 var (
 	rxVowelPrefix   = regexp.MustCompile(`(?i)^[aiu]`)
-	rxHamzahA       = regexp.MustCompile(`(?i)a([iu])`)
-	rxHamzahI       = regexp.MustCompile(`(?i)i([au])`)
-	rxHamzahU       = regexp.MustCompile(`(?i)u([ai])`)
+	rxHamzahA       = regexp.MustCompile(`(?i)\ba([iu])`)
+	rxHamzahI       = regexp.MustCompile(`(?i)\bi([au])`)
+	rxHamzahU       = regexp.MustCompile(`(?i)\bu([ai])`)
 	rxHamzahPrefix  = regexp.MustCompile(`(?i)^([^aiu0])?([^aiu0])0?([^aiu0])([aiu])`)
 	rxMaddaA        = regexp.MustCompile(`(?i)ax([^aiu]|$)`)
 	rxMaddaI        = regexp.MustCompile(`(?i)iy([^aiu]|$)`)
