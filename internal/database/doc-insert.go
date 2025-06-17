@@ -3,12 +3,14 @@ package database
 import (
 	"fmt"
 
+	"github.com/guregu/null/v6"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
 )
 
 type InsertDocumentArg struct {
 	DocumentID int
+	Identifier null.String
 	Arabic     string
 	Phonetic   phonetic.Group
 }
@@ -47,8 +49,8 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 
 	// Prepare statement
 	stmtInsertDoc, err := tx.Preparex(`
-		INSERT INTO document (id, arabic)
-		VALUES (?, ?)
+		INSERT INTO document (id, identifier, arabic)
+		VALUES (?, ?, ?)
 		ON CONFLICT (id) DO UPDATE
 		SET arabic = excluded.arabic`)
 	if err != nil {
@@ -73,7 +75,10 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 	// Insert the document
 	for _, arg := range args {
 		// Save document
-		_, err = stmtInsertDoc.Exec(arg.DocumentID, arg.Arabic)
+		_, err = stmtInsertDoc.Exec(
+			arg.DocumentID,
+			arg.Identifier,
+			arg.Arabic)
 		if err != nil {
 			return
 		}

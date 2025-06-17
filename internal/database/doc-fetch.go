@@ -30,7 +30,7 @@ func FetchDocuments(db *sqlx.DB, ids ...int) (documents []Document, err error) {
 
 	// Prepare statement
 	stmtGetDoc, err := tx.Preparex(`
-		SELECT id, arabic FROM document
+		SELECT id, identifier, arabic FROM document
 		WHERE id = ?`)
 	if err != nil {
 		return

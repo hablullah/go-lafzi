@@ -1,6 +1,7 @@
 package lafzi
 
 import (
+	"github.com/guregu/null/v6"
 	"github.com/hablullah/go-lafzi/internal/database"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
@@ -9,13 +10,15 @@ import (
 
 // Document is the Arabic document that will be indexed.
 type Document struct {
-	ID     int
-	Arabic string
+	ID         int
+	Identifier null.String
+	Arabic     string
 }
 
 // Result contains id of the suitable document and its confidence level.
 type Result struct {
 	DocumentID int
+	Identifier null.String
 	Text       string
 	Confidence float64
 	Positions  [][2]int
@@ -46,6 +49,7 @@ func (st *Storage) AddDocuments(docs ...Document) error {
 	for i, doc := range docs {
 		dbDocs[i] = database.InsertDocumentArg{
 			DocumentID: doc.ID,
+			Identifier: doc.Identifier,
 			Arabic:     doc.Arabic,
 			Phonetic:   phonetic.FromArabic(doc.Arabic),
 		}
@@ -104,6 +108,7 @@ func (st *Storage) Search(query string) ([]Result, error) {
 		// Save the result
 		results[i] = Result{
 			DocumentID: doc.ID,
+			Identifier: doc.Identifier,
 			Text:       doc.Arabic,
 			Confidence: searchResults[i].Confidence,
 			Positions:  searchResults[i].Positions,
