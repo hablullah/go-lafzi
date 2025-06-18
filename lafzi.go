@@ -1,7 +1,6 @@
 package lafzi
 
 import (
-	"github.com/guregu/null/v6"
 	"github.com/hablullah/go-lafzi/internal/database"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
@@ -11,14 +10,13 @@ import (
 // Document is the Arabic document that will be indexed.
 type Document struct {
 	ID         int
-	Identifier null.String
+	Identifier string
 	Arabic     string
 }
 
 // Result contains id of the suitable document and its confidence level.
 type Result struct {
-	DocumentID int
-	Identifier null.String
+	Identifier string
 	Text       string
 	Confidence float64
 	Positions  [][2]int
@@ -48,7 +46,6 @@ func (st *Storage) AddDocuments(docs ...Document) error {
 	dbDocs := make([]database.InsertDocumentArg, len(docs))
 	for i, doc := range docs {
 		dbDocs[i] = database.InsertDocumentArg{
-			DocumentID: doc.ID,
 			Identifier: doc.Identifier,
 			Arabic:     doc.Arabic,
 			Phonetic:   phonetic.FromArabic(doc.Arabic),
@@ -60,8 +57,8 @@ func (st *Storage) AddDocuments(docs ...Document) error {
 }
 
 // DeleteDocuments remove the documents in the storage.
-func (st *Storage) DeleteDocuments(ids ...int) error {
-	return database.DeleteDocuments(st.db, ids...)
+func (st *Storage) DeleteDocuments(identifiers ...string) error {
+	return database.DeleteDocuments(st.db, identifiers...)
 }
 
 // SetMinConfidence set the minimum confidence score for
@@ -91,25 +88,13 @@ func (st *Storage) Search(query string) ([]Result, error) {
 		return nil, err
 	}
 
-	// Fetch the documents from database
-	docIDs := make([]int, len(searchResults))
-	for i, loc := range searchResults {
-		docIDs[i] = loc.DocumentID
-	}
-
-	docs, err := database.FetchDocuments(st.db, docIDs...)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create final result
-	results := make([]Result, len(docs))
-	for i, doc := range docs {
+	results := make([]Result, len(searchResults))
+	for i, sr := range searchResults {
 		// Save the result
 		results[i] = Result{
-			DocumentID: doc.ID,
-			Identifier: doc.Identifier,
-			Text:       doc.Arabic,
+			Identifier: sr.Identifier,
+			Text:       sr.Text,
 			Confidence: searchResults[i].Confidence,
 			Positions:  searchResults[i].Positions,
 		}

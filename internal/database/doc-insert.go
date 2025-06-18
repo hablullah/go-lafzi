@@ -1,16 +1,15 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 
-	"github.com/guregu/null/v6"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 	"github.com/jmoiron/sqlx"
 )
 
 type InsertDocumentArg struct {
-	DocumentID int
-	Identifier null.String
+	Identifier string
 	Arabic     string
 	Phonetic   phonetic.Group
 }
@@ -48,10 +47,15 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 	}()
 
 	// Prepare statement
+	stmtGetDoc, err := tx.Preparex(`SELECT id FROM document WHERE identifier = ?`)
+	if err != nil {
+		return
+	}
+
 	stmtInsertDoc, err := tx.Preparex(`
-		INSERT INTO document (id, identifier, arabic)
-		VALUES (?, ?, ?)
-		ON CONFLICT (id) DO UPDATE
+		INSERT INTO document (identifier, arabic)
+		VALUES (?, ?)
+		ON CONFLICT (identifier) DO UPDATE
 		SET arabic = excluded.arabic`)
 	if err != nil {
 		return
@@ -74,17 +78,38 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 
 	// Insert the document
 	for _, arg := range args {
+		// Get document ID if it's exist
+		var documentID int64
+		documentExist := true
+		err = stmtGetDoc.Get(&documentID, arg.Identifier)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				documentExist = false
+				err = nil
+			} else {
+				return
+			}
+		}
+
 		// Save document
-		_, err = stmtInsertDoc.Exec(
-			arg.DocumentID,
+		var res sql.Result
+		res, err = stmtInsertDoc.Exec(
 			arg.Identifier,
 			arg.Arabic)
 		if err != nil {
 			return
 		}
 
+		// If document not exist, use ID from last inserted
+		if !documentExist {
+			documentID, err = res.LastInsertId()
+			if err != nil {
+				return
+			}
+		}
+
 		// Remove any token that associated with this document
-		_, err = stmtDeleteDocToken.Exec(arg.DocumentID)
+		_, err = stmtDeleteDocToken.Exec(documentID)
 		if err != nil {
 			return
 		}
@@ -92,7 +117,7 @@ func InsertDocuments(db *sqlx.DB, args ...InsertDocumentArg) (err error) {
 		// Save tokens
 		for _, token := range arg.Phonetic.Split(3) {
 			_, err = stmtInsertDocToken.Exec(
-				arg.DocumentID,
+				documentID,
 				token.Text,
 				token.Start,
 				token.End)

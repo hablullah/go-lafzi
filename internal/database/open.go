@@ -68,19 +68,21 @@ func Open(path string) (db *sqlx.DB, err error) {
 
 const ddlCreateDocument = `
 CREATE TABLE IF NOT EXISTS document (
-	id         INT  NOT NULL,
-	identifier TEXT DEFAULT NULL,
-	arabic     TEXT NOT NULL,
-	PRIMARY KEY (id),
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	identifier TEXT    UNIQUE NOT NULL,
+	arabic     TEXT    NOT NULL,
 	UNIQUE (identifier))`
 
 const ddlCreateDocumentToken = `
 CREATE TABLE IF NOT EXISTS document_token (
-	document_id INT  NOT NULL,
-	token       TEXT NOT NULL,
-	start       INT  NOT NULL,
-	end         INT  NOT NULL,
-	CONSTRAINT token_document_fk FOREIGN KEY (document_id) REFERENCES document (id))`
+	document_id INTEGER NOT NULL,
+	token       TEXT    NOT NULL,
+	start       INTEGER NOT NULL,
+	end         INTEGER NOT NULL,
+	CONSTRAINT token_document_fk
+		FOREIGN KEY (document_id)
+		REFERENCES document (id)
+		ON DELETE CASCADE)`
 
 const ddlCreateDocumentTokenIndexToken = `
 CREATE INDEX IF NOT EXISTS document_token_idx_token ON document_token (token)`

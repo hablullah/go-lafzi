@@ -31,6 +31,8 @@ type TokenLocationGroup struct {
 
 type SearchResult struct {
 	DocumentID int
+	Identifier string
+	Text       string
 	Confidence float64
 	Positions  [][2]int
 }
@@ -65,6 +67,13 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 		FROM document_token
 		WHERE token = ?
 		ORDER BY document_id, start`)
+	if err != nil {
+		return
+	}
+
+	stmtGetDocument, err := tx.Preparex(`
+		SELECT identifier, arabic
+		FROM document WHERE id = ?`)
 	if err != nil {
 		return
 	}
@@ -234,6 +243,19 @@ func SearchTokens(db *sqlx.DB, minConfidence float64, tokens ...string) (results
 
 		return cmp.Compare(a.DocumentID, b.DocumentID)
 	})
+
+	// Fetch document data
+	for i, res := range results {
+		var doc Document
+		err = stmtGetDocument.Get(&doc, res.DocumentID)
+		if err != nil && err != sql.ErrNoRows {
+			return
+		}
+
+		res.Text = doc.Arabic
+		res.Identifier = doc.Identifier
+		results[i] = res
+	}
 
 	return
 }

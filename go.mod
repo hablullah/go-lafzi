@@ -3,7 +3,6 @@ module github.com/hablullah/go-lafzi
 go 1.24
 
 require (
-	github.com/guregu/null/v6 v6.0.0
 	github.com/jmoiron/sqlx v1.4.0
 	golang.org/x/sync v0.15.0
 	golang.org/x/text v0.26.0

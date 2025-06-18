@@ -7,9 +7,9 @@ import (
 )
 
 // DeleteDocuments remove documents in database.
-func DeleteDocuments(db *sqlx.DB, ids ...int) (err error) {
-	// If there are no IDs submitted, stop early
-	if len(ids) == 0 {
+func DeleteDocuments(db *sqlx.DB, identifiers ...string) (err error) {
+	// If there are no identifiers submitted, stop early
+	if len(identifiers) == 0 {
 		return nil
 	}
 
@@ -30,24 +30,12 @@ func DeleteDocuments(db *sqlx.DB, ids ...int) (err error) {
 	// Prepare query
 	sqlDoc, docArgs, err := sqlx.In(`
 		DELETE FROM document
-		WHERE id IN (?)`, ids)
-	if err != nil {
-		return
-	}
-
-	sqlToken, tokenArgs, err := sqlx.In(`
-		DELETE FROM document_token
-		WHERE document_id IN (?)`, ids)
+		WHERE identifier IN (?)`, identifiers)
 	if err != nil {
 		return
 	}
 
 	// Execute query
-	_, err = tx.Exec(sqlToken, tokenArgs...)
-	if err != nil {
-		return
-	}
-
 	_, err = tx.Exec(sqlDoc, docArgs...)
 	if err != nil {
 		return

@@ -1,14 +1,13 @@
 package database
 
 import (
-	"github.com/guregu/null/v6"
 	"github.com/hablullah/go-lafzi/internal/phonetic"
 )
 
 type Document struct {
-	ID         int         `db:"id"`
-	Identifier null.String `db:"identifier"`
-	Arabic     string      `db:"arabic"`
+	ID         int    `db:"id"`
+	Identifier string `db:"identifier"`
+	Arabic     string `db:"arabic"`
 	Tokens     []phonetic.NGram
 }
 
