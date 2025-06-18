@@ -36,9 +36,16 @@ func prepareStorage(st *lafzi.Storage) error {
 	// Prepare documents
 	docs := make([]lafzi.Document, len(listAyah))
 	for i, ayah := range listAyah {
+		id := i + 1
+		var identifier string
+		if surah := getSurah(id); surah != nil {
+			ayah := id - surah.Start + 1
+			identifier = fmt.Sprintf("%d:%d", surah.ID, ayah)
+		}
+
 		docs[i] = lafzi.Document{
-			ID:     i + 1,
-			Arabic: ayah,
+			Identifier: identifier,
+			Arabic:     ayah,
 		}
 	}
 
@@ -79,11 +86,7 @@ func runBenchmark(st *lafzi.Storage) error {
 			mapResult := map[string]struct{}{}
 			if len(results) > 0 {
 				for _, r := range results {
-					if surah := getSurah(r.DocumentID); surah != nil {
-						ayah := r.DocumentID - surah.Start + 1
-						key := fmt.Sprintf("%d:%d", surah.ID, ayah)
-						mapResult[key] = struct{}{}
-					}
+					mapResult[r.Identifier] = struct{}{}
 				}
 			}
 

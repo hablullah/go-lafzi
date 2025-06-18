@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/hablullah/go-lafzi"
 )
@@ -19,6 +20,7 @@ var arabicTexts = []string{
 
 func main() {
 	// Open storage
+	os.RemoveAll("sample.lafzi")
 	storage, err := lafzi.OpenStorage("sample.lafzi")
 	checkError(err)
 
@@ -26,8 +28,8 @@ func main() {
 	var docs []lafzi.Document
 	for i, arabicText := range arabicTexts {
 		docs = append(docs, lafzi.Document{
-			ID:     i + 1,
-			Arabic: arabicText},
+			Identifier: fmt.Sprintf("%d", i+1),
+			Arabic:     arabicText},
 		)
 	}
 

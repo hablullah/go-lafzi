@@ -9,7 +9,6 @@ import (
 
 // Document is the Arabic document that will be indexed.
 type Document struct {
-	ID         int
 	Identifier string
 	Arabic     string
 }
