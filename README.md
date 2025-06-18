@@ -1,11 +1,15 @@
 # Go-Lafzi [![Go Report Card][report-badge]][report-url] [![Go Reference][doc-badge]][doc-url]
 
-Go-Lafzi is a Go package for searching Arabic text using its transliteration (phonetic search). Loosely based on research by Istiadi (2012) and multiple papers related with it.
+Go-Lafzi is a Go package for searching Arabic text using its transliteration (phonetic search). It is loosely based on research by Istiadi (2012) and several related papers.
 
-It works by using indexed trigram for approximate string matching, while the search result is ranked using [_Longest Common Sequence_][lcs] with [Myers Diff Algorithm][myers]. For storing the indexes, it uses [SQLite][sqlite] database which brings several advantages:
+It works by using indexed trigrams for approximate string matching, with search results ranked using heuristics such as compactness and completeness. For storing the indexes, it uses Modernc's port of [SQLite][sqlite] database that does not rely on cgo. Thanks to this, we gain several advantages:
 
-- The indexing and lookup process is pretty fast, around 3 seconds for indexing entire Al-Quran and 90 ms per lookup. For more detail, checkout the code in [`sample/quran`](sample/quran).
-- Can be safely used concurrently.
+- Since it doesn't use cgo, it can be easily used across platforms.
+- It can be safely used concurrently.
+- It can be easily modified using various database editors.
+- The lookup process is fast, as SQLite is efficient at reading data.
+
+There is one disadvantage, though: the indexing process is somewhat slow, as Modernc's SQLite is relatively slow at writing data. However, this is usually acceptable since indexing is typically performed only once.
 
 ## Usage
 
@@ -17,6 +21,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/hablullah/go-lafzi"
 )
@@ -33,6 +38,7 @@ var arabicTexts = []string{
 
 func main() {
 	// Open storage
+	os.RemoveAll("sample.lafzi")
 	storage, err := lafzi.OpenStorage("sample.lafzi")
 	checkError(err)
 
@@ -40,8 +46,8 @@ func main() {
 	var docs []lafzi.Document
 	for i, arabicText := range arabicTexts {
 		docs = append(docs, lafzi.Document{
-			ID:     i + 1,
-			Arabic: arabicText},
+			Identifier: fmt.Sprintf("%d", i+1),
+			Arabic:     arabicText},
 		)
 	}
 
@@ -54,7 +60,7 @@ func main() {
 	checkError(err)
 
 	// Print search result
-	bt, _ := json.MarshalIndent(&results, "", "  ")
+	bt, _ := json.MarshalIndent(&results, "", "\t")
 	fmt.Println(string(bt))
 }
 
@@ -69,22 +75,25 @@ Which will give us following results :
 
 ```
 [
-  {
-    "DocumentID": 1,
-    "Text": "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ",
-    "Confidence": 1,
-    "Start": 17,
-    "End": 27
-  },
-  {
-    "DocumentID": 3,
-    "Text": "الرَّحْمَـٰنِ الرَّحِيمِ",
-    "Confidence": 1,
-    "Start": 2,
-    "End": 12
-  }
+	{
+		"Identifier": "1",
+		"Text": "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ",
+		"Confidence": 1,
+		"Positions": [[17, 27]]
+	},
+	{
+		"Identifier": "3",
+		"Text": "الرَّحْمَـٰنِ الرَّحِيمِ",
+		"Confidence": 1,
+		"Positions": [[2, 12]]
+	}
 ]
 ```
+
+For more examples, check out the `sample` directory. It contains two examples:
+
+- `sample/simple` is a sample project demonstrating the basic usage described above.
+- `sample/quran` is a sample project that indexes the entire Quran.
 
 ## Resources
 
@@ -111,9 +120,7 @@ Go-Lafzi is distributed using [MIT] license.
 [report-url]: https://goreportcard.com/report/github.com/hablullah/go-lafzi
 [doc-badge]: https://pkg.go.dev/badge/github.com/hablullah/go-lafzi.svg
 [doc-url]: https://pkg.go.dev/github.com/hablullah/go-lafzi
-[lcs]: https://en.wikipedia.org/wiki/Longest_common_subsequence_problem
-[myers]: https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.6927
-[sqlite]: https://github.com/mattn/go-sqlite3
+[sqlite]: https://gitlab.com/cznic/sqlite
 [al-fatiha]: http://tanzil.net/#1:1
 [istiadi-pdf]: doc/2012-ma-istiadi.pdf
 [istiadi-url]: http://repository.ipb.ac.id:8080/handle/123456789/56060?show=full

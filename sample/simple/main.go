@@ -42,7 +42,7 @@ func main() {
 	checkError(err)
 
 	// Print search result
-	bt, _ := json.MarshalIndent(&results, "", "  ")
+	bt, _ := json.MarshalIndent(&results, "", "\t")
 	fmt.Println(string(bt))
 }
 
